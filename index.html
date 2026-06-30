@@ -891,7 +891,7 @@
     </div>
 
     <!-- Curve -->
-    <div class="section-collapse data-section="curve" class="collapsed">
+    <div class="section-collapse" data-section="curve">
       曲线
       <span class="arrow">▾</span>
     </div>
@@ -927,7 +927,7 @@
     </div>
 
     <!-- Color Grading -->
-    <div class="section-collapse data-section="grading" class="collapsed">
+    <div class="section-collapse" data-section="grading">
       颜色分级
       <span class="arrow">▾</span>
     </div>
@@ -968,7 +968,7 @@
     </div>
 
     <!-- Detail -->
-    <div class="section-collapse data-section="detail" class="collapsed">
+    <div class="section-collapse" data-section="detail" class="collapsed">
       细节
       <span class="arrow">▾</span>
     </div>
@@ -1020,7 +1020,7 @@
     </div>
 
     <!-- Optics -->
-    <div class="section-collapse data-section="optics" class="collapsed">
+    <div class="section-collapse" data-section="optics" class="collapsed">
       光学
       <span class="arrow">▾</span>
     </div>
@@ -1049,7 +1049,7 @@
     </div>
 
     <!-- Lens Blur -->
-    <div class="section-collapse data-section="lensblur" class="collapsed">
+    <div class="section-collapse" data-section="lensblur" class="collapsed">
       镜头模糊
       <span class="arrow">▾</span>
     </div>
@@ -1074,7 +1074,7 @@
     </div>
 
     <!-- Calibration -->
-    <div class="section-collapse data-section="calibration" class="collapsed">
+    <div class="section-collapse" data-section="calibration" class="collapsed">
       校准
       <span class="arrow">▾</span>
     </div>
@@ -1631,7 +1631,6 @@ function applyEdits() {
     b = gray + (b - gray) * (1 + sat);
 
     // --- PARAMETRIC CURVE (ACR-style: Highlights/Lights/Darks/Shadows) ---
-    const lum = 0.299*r + 0.587*g + 0.114*b;
     const lumNorm = lum / 255;
     // Highlights: top 25% of tonal range
     const hCurve = curveHigh * (Math.max(0, (lumNorm - 0.75) / 0.25));
