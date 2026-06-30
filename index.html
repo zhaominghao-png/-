@@ -530,6 +530,42 @@
     display: none;
   }
 
+  /* Curve Canvas */
+  .curve-canvas-wrap {
+    padding: 0 20px 8px;
+  }
+  #curveCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    background: #1a1a1a;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .curve-controls {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .curve-channel-btn {
+    flex: 1;
+    padding: 4px 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .curve-channel-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
   /* Tabs */
   .tabs {
     display: flex;
@@ -896,7 +932,18 @@
       <span class="arrow">▾</span>
     </div>
     <div class="section-content collapsed" id="sectionCurve">
-      <div class="slider-group">
+      <!-- Point Curve Canvas -->
+      <div class="curve-canvas-wrap">
+        <canvas id="curveCanvas" width="240" height="240"></canvas>
+        <div class="curve-controls">
+          <button class="curve-channel-btn active" data-channel="rgb">RGB</button>
+          <button class="curve-channel-btn" data-channel="red" style="color:#e04040">R</button>
+          <button class="curve-channel-btn" data-channel="green" style="color:#50c860">G</button>
+          <button class="curve-channel-btn" data-channel="blue" style="color:#4068d0">B</button>
+        </div>
+      </div>
+      <!-- Parametric sliders -->
+      <div class="slider-group" style="margin-top:8px">
         <div class="slider-header"><span class="slider-label">高光</span><span class="slider-value" id="valCurveHigh">0</span></div>
         <div class="slider-row">
           <input type="range" id="curveHigh" min="-100" max="100" value="0" step="1">
@@ -1665,6 +1712,26 @@ function applyEdits() {
     g += curveSum * 255;
     b += curveSum * 255;
 
+    // --- POINT CURVE (LUT-based) ---
+    const rgbLut = curveToLUT();
+    if (curvePoints.rgb.length > 0) {
+      r = rgbLut[Math.round(Math.max(0, Math.min(255, r)))];
+      g = rgbLut[Math.round(Math.max(0, Math.min(255, g)))];
+      b = rgbLut[Math.round(Math.max(0, Math.min(255, b)))];
+    }
+    if (curvePoints.red.length > 0) {
+      const redLut = (() => { const prev = curveChannel; curveChannel = 'red'; const l = curveToLUT(); curveChannel = prev; return l; })();
+      r = redLut[Math.round(Math.max(0, Math.min(255, r)))];
+    }
+    if (curvePoints.green.length > 0) {
+      const greenLut = (() => { const prev = curveChannel; curveChannel = 'green'; const l = curveToLUT(); curveChannel = prev; return l; })();
+      g = greenLut[Math.round(Math.max(0, Math.min(255, g)))];
+    }
+    if (curvePoints.blue.length > 0) {
+      const blueLut = (() => { const prev = curveChannel; curveChannel = 'blue'; const l = curveToLUT(); curveChannel = prev; return l; })();
+      b = blueLut[Math.round(Math.max(0, Math.min(255, b)))];
+    }
+
     // --- HSL MIXER (8-color selective adjustment) ---
     const hasHsl = hslRedH || hslRedS || hslRedL || hslOrangeH || hslOrangeS || hslOrangeL ||
                    hslYellowH || hslYellowS || hslYellowL || hslGreenH || hslGreenS || hslGreenL ||
@@ -2301,8 +2368,196 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '3') applyPreset(3);
 });
 
+// ===== POINT CURVE =====
+const curveCanvas = document.getElementById('curveCanvas');
+let curveChannel = 'rgb';
+let curvePoints = { rgb:[], red:[], green:[], blue:[] };
+let curveDragging = -1;
+
+function initCurve() {
+  const dpr = window.devicePixelRatio || 1;
+  curveCanvas.width = 240 * dpr;
+  curveCanvas.height = 240 * dpr;
+  curveCanvas.getContext('2d').scale(dpr, dpr);
+  drawCurve();
+}
+
+function drawCurve() {
+  const ctx = curveCanvas.getContext('2d');
+  const w = 240, h = 240;
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    const x = (w * i) / 4, y = (h * i) / 4;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  // Border
+  ctx.strokeStyle = '#3a3a3a';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, w, h);
+
+  // Draw histogram background if image loaded
+  if (originalImage) {
+    drawHistogramBg(ctx, w, h);
+  }
+
+  // Points for current channel
+  const pts = curvePoints[curveChannel];
+  const allPts = [{x:0,y:h}, ...pts, {x:w,y:0}];
+  allPts.sort((a,b) => a.x - b.x);
+
+  // Curve line
+  ctx.strokeStyle = curveChannel === 'rgb' ? '#ccc' :
+    curveChannel === 'red' ? '#e04040' : curveChannel === 'green' ? '#50c860' : '#4068d0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  // Catmull-Rom smooth curve through all points
+  for (let i = 0; i < allPts.length - 1; i++) {
+    const p0 = allPts[Math.max(0, i-1)];
+    const p1 = allPts[i];
+    const p2 = allPts[i+1];
+    const p3 = allPts[Math.min(allPts.length-1, i+2)];
+    for (let t = 0; t <= 1; t += 0.05) {
+      const tt = t * t, ttt = tt * t;
+      const cx = 0.5 * ((2*p1.x) + (-p0.x + p2.x)*t + (2*p0.x - 5*p1.x + 4*p2.x - p3.x)*tt + (-p0.x + 3*p1.x - 3*p2.x + p3.x)*ttt);
+      const cy = 0.5 * ((2*p1.y) + (-p0.y + p2.y)*t + (2*p0.y - 5*p1.y + 4*p2.y - p3.y)*tt + (-p0.y + 3*p1.y - 3*p2.y + p3.y)*ttt);
+      ctx.lineTo(cx, cy);
+    }
+  }
+  ctx.stroke();
+
+  // Control points
+  pts.forEach(p => {
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+function drawHistogramBg(ctx, w, h) {
+  // Sample histogram from originalImage
+  const canvas = document.createElement('canvas');
+  const scale = Math.min(1, 200 / originalImage.width);
+  canvas.width = Math.round(originalImage.width * scale);
+  canvas.height = Math.round(originalImage.height * scale);
+  const c = canvas.getContext('2d');
+  c.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+  const data = c.getImageData(0, 0, canvas.width, canvas.height).data;
+  const bins = new Array(256).fill(0);
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = Math.round(0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2]);
+    bins[lum]++;
+  }
+  const maxBin = Math.max(...bins, 1);
+  ctx.fillStyle = '#333';
+  const barW = w / 256;
+  for (let i = 0; i < 256; i++) {
+    const barH = (bins[i] / maxBin) * h;
+    ctx.fillRect(i * barW, h - barH, barW + 1, barH);
+  }
+}
+
+function curveToLUT() {
+  const lut = new Uint8Array(256);
+  const pts = curvePoints[curveChannel];
+  if (pts.length === 0) { for (let i = 0; i < 256; i++) lut[i] = i; return lut; }
+  const allPts = [{x:0,y:240}, ...pts, {x:240,y:0}];
+  allPts.sort((a,b) => a.x - b.x);
+  for (let i = 0; i < 256; i++) {
+    const tx = (i / 255) * 240;
+    // Find segment
+    let j = 0;
+    while (j < allPts.length - 1 && allPts[j+1].x < tx) j++;
+    const p0 = allPts[Math.max(0, j-1)];
+    const p1 = allPts[j];
+    const p2 = allPts[Math.min(allPts.length-1, j+1)];
+    const p3 = allPts[Math.min(allPts.length-1, j+2)];
+    const t = (tx - p1.x) / (p2.x - p1.x || 1);
+    const tt = t*t, ttt = tt*t;
+    const cy = 0.5 * ((2*p1.y) + (-p0.y + p2.y)*t + (2*p0.y - 5*p1.y + 4*p2.y - p3.y)*tt + (-p0.y + 3*p1.y - 3*p2.y + p3.y)*ttt);
+    lut[i] = Math.round(Math.max(0, Math.min(255, (240 - cy) / 240 * 255)));
+  }
+  return lut;
+}
+
+// Mouse handlers
+function getCurvePos(e) {
+  const rect = curveCanvas.getBoundingClientRect();
+  const scaleX = 240 / rect.width;
+  const scaleY = 240 / rect.height;
+  return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+}
+
+curveCanvas.addEventListener('mousedown', (e) => {
+  const pos = getCurvePos(e);
+  const pts = curvePoints[curveChannel];
+  // Check if clicking near existing point
+  curveDragging = pts.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 12);
+  if (curveDragging === -1 && pts.length < 6) {
+    // Add new point
+    pts.push({x: Math.round(pos.x), y: Math.round(pos.y)});
+    pts.sort((a,b) => a.x - b.x);
+    curveDragging = pts.findIndex(p => p.x === Math.round(pos.x) && p.y === Math.round(pos.y));
+  }
+  drawCurve();
+  scheduleRender();
+});
+
+curveCanvas.addEventListener('mousemove', (e) => {
+  if (curveDragging < 0) return;
+  const pos = getCurvePos(e);
+  const pts = curvePoints[curveChannel];
+  pts[curveDragging].x = Math.max(0, Math.min(240, Math.round(pos.x)));
+  pts[curveDragging].y = Math.max(0, Math.min(240, Math.round(pos.y)));
+  drawCurve();
+  scheduleRender();
+});
+
+curveCanvas.addEventListener('mouseup', () => { curveDragging = -1; });
+curveCanvas.addEventListener('mouseleave', () => { curveDragging = -1; });
+
+// Double click to remove point
+curveCanvas.addEventListener('dblclick', (e) => {
+  const pos = getCurvePos(e);
+  const pts = curvePoints[curveChannel];
+  const idx = pts.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 12);
+  if (idx >= 0) {
+    pts.splice(idx, 1);
+    drawCurve();
+    scheduleRender();
+  }
+});
+
+// Channel buttons
+document.querySelectorAll('.curve-channel-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.curve-channel-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    curveChannel = btn.dataset.channel;
+    drawCurve();
+  });
+});
+
+// Reset curve
+document.getElementById('curveCanvas').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  curvePoints[curveChannel] = [];
+  drawCurve();
+  scheduleRender();
+});
+
 // ===== INIT =====
 updatePresetCards();
+initCurve();
 console.log('🎨 显影 · 显影 · 影像后期工作站 · 已就绪');
 console.log('拖入照片开始调色 | 快捷键: 0-3 切换预设 | Ctrl+E 导出 | Ctrl+R 重置');
 </script>
