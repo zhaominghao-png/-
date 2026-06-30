@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>显影 · 显影 · 影像后期工作站</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0a0b;
+    --surface: rgba(18, 18, 20, 0.85);
+    --surface-solid: #121214;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-active: rgba(255, 255, 255, 0.12);
+    --text: #f5f5f7;
+    --text-secondary: #98989d;
+    --text-tertiary: #6e6e73;
+    --accent: #f0a050;
+    --accent-dim: rgba(240, 160, 80, 0.15);
+    --red: #ff453a;
+    --green: #30d158;
+    --blue: #0a84ff;
+    --slider-track: rgba(255, 255, 255, 0.1);
+    --slider-fill: rgba(240, 160, 80, 0.4);
+    --panel-width: 320px;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-xs: 6px;
+    --transition: 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ===== APP SHELL ===== */
+  .app {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== MAIN CANVAS AREA ===== */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(240, 160, 80, 0.03) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(10, 132, 255, 0.02) 0%, transparent 50%);
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(10, 10, 11, 0.7);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .logo span {
+    color: var(--accent);
+  }
+
+  .filename {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-xs);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0b;
+    font-weight: 600;
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.1);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border-active);
+  }
+
+  .btn-outline:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 0.72rem;
+  }
+
+  /* Canvas container */
+  .canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .canvas-inner {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.05),
+      0 20px 60px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 140px);
+    object-fit: contain;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    color: var(--text-tertiary);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  .empty-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .empty-desc {
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .drop-zone {
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    padding: 48px 64px;
+    transition: var(--transition);
+    cursor: pointer;
+  }
+
+  .drop-zone:hover {
+    border-color: rgba(240, 160, 80, 0.3);
+    background: rgba(240, 160, 80, 0.03);
+  }
+
+  .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  /* Bottom bar */
+  .bottombar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(10, 10, 11, 0.7);
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    z-index: 10;
+  }
+
+  .bottombar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .zoom-control span {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  /* Before/After toggle */
+  .compare-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+  }
+
+  .compare-toggle label {
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+
+  /* ===== RIGHT PANEL ===== */
+  .panel {
+    width: var(--panel-width);
+    background: var(--surface);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 10;
+  }
+
+  .panel::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+  }
+
+  /* Histogram */
+  .histogram {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .histogram canvas {
+    width: 100%;
+    height: 56px;
+    border-radius: 4px;
+  }
+
+  /* Presets */
+  .section {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+  }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .preset-card {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: var(--transition);
+    aspect-ratio: 4/3;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .preset-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .preset-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .preset-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .preset-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 8px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  .preset-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    background: rgba(240, 160, 80, 0.9);
+    color: #000;
+  }
+
+  .preset-card.locked .preset-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .preset-card.locked::after {
+    content: '🔒';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2rem;
+    opacity: 0.7;
+  }
+
+  .preset-card.locked .preset-preview {
+    filter: brightness(0.4) blur(4px);
+  }
+
+  /* Sliders */
+  .slider-group {
+    margin-bottom: 12px;
+  }
+
+  .slider-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .slider-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+  }
+
+  .slider-value {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--slider-track);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: var(--transition);
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .reset-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: var(--transition);
+  }
+
+  .reset-btn:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Section collapse */
+  .section-collapse {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition);
+  }
+
+  .section-collapse:hover {
+    color: var(--text);
+  }
+
+  .section-collapse .arrow {
+    transition: var(--transition);
+    font-size: 0.6rem;
+  }
+
+  .section-collapse.collapsed .arrow {
+    transform: rotate(-90deg);
+  }
+
+  .section-content {
+    padding: 12px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-content.collapsed {
+    display: none;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-xs);
+    margin-bottom: 12px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 6px 10px;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    transition: var(--transition);
+  }
+
+  .tab.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+  }
+
+  .tab:hover:not(.active) {
+    color: var(--text-secondary);
+  }
+
+  /* HSL Mixer */
+  .hsl-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .hsl-chip {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: var(--transition);
+  }
+
+  .hsl-chip:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: scale(1.15);
+  }
+
+  .hsl-chip.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal {
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+  }
+
+  .modal h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .price-sub {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-bottom: 24px;
+  }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 0.8rem;
+    color: var(--text);
+    z-index: 1001;
+    transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .panel {
+      width: 100%;
+      max-height: 45vh;
+      border-left: none;
+      border-right: none;
+      border-top: 1px solid var(--border);
+    }
+    .canvas-wrap { padding: 12px; }
+    canvas { max-height: calc(55vh - 100px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- RIGHT PANEL -->
+  <div class="panel" id="panel">
+    <!-- Histogram -->
+    <div class="histogram">
+      <canvas id="histogramCanvas"></canvas>
+    </div>
+
+    <!-- Presets -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">预设</span>
+        <span style="font-size:0.65rem;color:var(--text-tertiary)">赵明皓</span>
+      </div>
+      <div class="preset-grid" id="presetGrid">
+        <div class="preset-card active" data-preset="0">
+          <canvas class="preset-preview" data-preview="0"></canvas>
+          <div class="preset-label">原图</div>
+        </div>
+        <div class="preset-card locked" data-preset="1">
+          <canvas class="preset-preview" data-preview="1"></canvas>
+          <div class="preset-label">蓝调时刻</div>
+          <div class="preset-badge">PRO</div>
+        </div>
+        <div class="preset-card locked" data-preset="2">
+          <canvas class="preset-preview" data-preview="2"></canvas>
+          <div class="preset-label">白日梦</div>
+          <div class="preset-badge">PRO</div>
+        </div>
+        <div class="preset-card locked" data-preset="3">
+          <canvas class="preset-preview" data-preview="3"></canvas>
+          <div class="preset-label">胶片记忆</div>
+          <div class="preset-badge">PRO</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Light -->
+    <div class="section-collapse" data-section="light">
+      亮
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content" id="sectionLight">
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">曝光</span><span class="slider-value" id="valExposure">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="exposure" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="exposure">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">对比度</span><span class="slider-value" id="valContrast">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="contrast" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="contrast">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">高光</span><span class="slider-value" id="valHighlights">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="highlights" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="highlights">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">阴影</span><span class="slider-value" id="valShadows">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="shadows" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="shadows">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">白色</span><span class="slider-value" id="valWhites">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="whites" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="whites">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">黑色</span><span class="slider-value" id="valBlacks">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="blacks" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="blacks">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color -->
+    <div class="section-collapse" data-section="color">
+      颜色
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content" id="sectionColor">
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色温</span><span class="slider-value" id="valTemp">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="temperature" min="-100" max="100" value="0" step="1" style="background:linear-gradient(90deg,#4a90d9,#e8e8e8,#e8a850)">
+          <button class="reset-btn" data-target="temperature">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色调</span><span class="slider-value" id="valTint">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="tint" min="-100" max="100" value="0" step="1" style="background:linear-gradient(90deg,#50c878,#e8e8e8,#c850a0)">
+          <button class="reset-btn" data-target="tint">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">自然饱和度</span><span class="slider-value" id="valVibrance">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="vibrance" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="vibrance">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">饱和度</span><span class="slider-value" id="valSaturation">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="saturation" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="saturation">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Effects -->
+    <div class="section-collapse" data-section="effects">
+      效果
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content" id="sectionEffects">
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">褪色</span><span class="slider-value" id="valFade">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="fade" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="fade">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">颗粒</span><span class="slider-value" id="valGrain">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="grain" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="grain">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">暗角</span><span class="slider-value" id="valVignette">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="vignette" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="vignette">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">锐化</span><span class="slider-value" id="valSharpen">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="sharpen" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="sharpen">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HSL Mixer -->
+    <div class="section-collapse" data-section="hsl">
+      混色器
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content" id="sectionHSL">
+      <div class="tabs">
+        <div class="tab active" data-hsl="hue">色相</div>
+        <div class="tab" data-hsl="sat">饱和度</div>
+        <div class="tab" data-hsl="lum">明亮度</div>
+      </div>
+      <div class="hsl-row">
+        <div class="hsl-chip active" data-color="red" style="background:#e04040"></div>
+        <div class="hsl-chip" data-color="orange" style="background:#e08840"></div>
+        <div class="hsl-chip" data-color="yellow" style="background:#e0d040"></div>
+        <div class="hsl-chip" data-color="green" style="background:#50c860"></div>
+        <div class="hsl-chip" data-color="cyan" style="background:#40c8c8"></div>
+        <div class="hsl-chip" data-color="blue" style="background:#4068d0"></div>
+        <div class="hsl-chip" data-color="purple" style="background:#8840c0"></div>
+        <div class="hsl-chip" data-color="magenta" style="background:#c040a0"></div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label" id="hsl显影el">红色色相</span><span class="slider-value" id="valHsl">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="hslSlider" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="hslSlider">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Curve -->
+    <div class="section-collapse data-section="curve" class="collapsed">
+      曲线
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionCurve">
+      <div style="padding:8px 0;color:var(--text-tertiary);font-size:0.72rem;text-align:center">
+        曲线调整即将上线<br>支持高光/亮调/暗调/阴影四区域独立控制
+      </div>
+    </div>
+
+    <!-- Color Grading -->
+    <div class="section-collapse data-section="grading" class="collapsed">
+      颜色分级
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionGrading">
+      <div class="tabs">
+        <div class="tab active">阴影</div>
+        <div class="tab">中间调</div>
+        <div class="tab">高光</div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色相</span><span class="slider-value" id="valGradeHue">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="gradeHue" min="0" max="360" value="0" step="1">
+          <button class="reset-btn" data-target="gradeHue">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">饱和度</span><span class="slider-value" id="valGradeSat">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="gradeSat" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="gradeSat">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">明亮度</span><span class="slider-value" id="valGradeLum">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="gradeLum" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="gradeLum">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">混合</span><span class="slider-value" id="valGradeBlend">100</span></div>
+        <div class="slider-row">
+          <input type="range" id="gradeBlend" min="0" max="100" value="100" step="1">
+          <button class="reset-btn" data-target="gradeBlend">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="section-collapse data-section="detail" class="collapsed">
+      细节
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionDetail">
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin-bottom:12px">锐化</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">锐化强度</span><span class="slider-value" id="valSharpAmount">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="sharpAmount" min="0" max="150" value="0" step="1">
+          <button class="reset-btn" data-target="sharpAmount">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">半径</span><span class="slider-value" id="valSharpRadius">1.0</span></div>
+        <div class="slider-row">
+          <input type="range" id="sharpRadius" min="5" max="30" value="10" step="1">
+          <button class="reset-btn" data-target="sharpRadius">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">细节</span><span class="slider-value" id="valSharpDetail">25</span></div>
+        <div class="slider-row">
+          <input type="range" id="sharpDetail" min="0" max="100" value="25" step="1">
+          <button class="reset-btn" data-target="sharpDetail">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">蒙版</span><span class="slider-value" id="valSharpMask">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="sharpMask" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="sharpMask">↺</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin:16px 0 12px">降噪</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">明亮度降噪</span><span class="slider-value" id="valNrLuma">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="nrLuma" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="nrLuma">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">颜色降噪</span><span class="slider-value" id="valNrColor">25</span></div>
+        <div class="slider-row">
+          <input type="range" id="nrColor" min="0" max="100" value="25" step="1">
+          <button class="reset-btn" data-target="nrColor">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optics -->
+    <div class="section-collapse data-section="optics" class="collapsed">
+      光学
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionOptics">
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label"> distortion 畸变</span><span class="slider-value" id="valDistortion">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="distortion" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="distortion">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色差校正</span><span class="slider-value" id="valCa">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="ca" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="ca">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">暗角补偿</span><span class="slider-value" id="valVignetteComp">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="vignetteComp" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="vignetteComp">↺</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lens Blur -->
+    <div class="section-collapse data-section="lensblur" class="collapsed">
+      镜头模糊
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionLensblur">
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">模糊强度</span><span class="slider-value" id="valBlurAmount">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="blurAmount" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="blurAmount">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">散景效果</span><span class="slider-value" id="valBokeh">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="bokeh" min="0" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="bokeh">↺</button>
+        </div>
+      </div>
+      <div style="padding:8px 0;color:var(--text-tertiary);font-size:0.72rem;text-align:center">
+        深度范围控制即将上线
+      </div>
+    </div>
+
+    <!-- Calibration -->
+    <div class="section-collapse data-section="calibration" class="collapsed">
+      校准
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionCalibration">
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin-bottom:8px">阴影色调</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色调</span><span class="slider-value" id="valCalShadow">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calShadow" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calShadow">↺</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin:12px 0 8px">红原色</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色相</span><span class="slider-value" id="valCalRedHue">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calRedHue" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calRedHue">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">饱和度</span><span class="slider-value" id="valCalRedSat">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calRedSat" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calRedSat">↺</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin:12px 0 8px">绿原色</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色相</span><span class="slider-value" id="valCalGreenHue">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calGreenHue" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calGreenHue">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">饱和度</span><span class="slider-value" id="valCalGreenSat">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calGreenSat" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calGreenSat">↺</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-tertiary);margin:12px 0 8px">蓝原色</div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">色相</span><span class="slider-value" id="valCalBlueHue">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calBlueHue" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calBlueHue">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">饱和度</span><span class="slider-value" id="valCalBlueSat">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="calBlueSat" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="calBlueSat">↺</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="logo">显<span>影</span></div>
+        <div class="filename" id="filename">拖入照片开始调色</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" id="btnReset" title="重置所有调整">重置</button>
+        <button class="btn btn-ghost btn-sm" id="btnCompare" title="对比原图">对比</button>
+        <button class="btn btn-outline btn-sm" id="btnExport">导出</button>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="empty-state" id="emptyState">
+        <div class="drop-zone" id="dropZone">
+          <div class="empty-icon">📷</div>
+          <div class="empty-title">拖入照片或点击上传</div>
+          <div class="empty-desc">支持 JPG / PNG / WebP<br>所有处理在本地完成，你的照片不会上传到任何服务器</div>
+        </div>
+      </div>
+      <div class="canvas-inner" id="canvasInner" style="display:none">
+        <canvas id="mainCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="bottombar">
+      <div class="bottombar-left">
+        <span id="imageInfo"></span>
+      </div>
+      <div class="zoom-control">
+        <button class="btn btn-ghost btn-sm" id="zoomOut">−</button>
+        <span id="zoomLevel">100%</span>
+        <button class="btn btn-ghost btn-sm" id="zoomIn">+</button>
+      </div>
+    </div>
+  </div>
+
+  
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <h2>解锁 显影 Pro</h2>
+    <p>解锁全部4套赵明皓专属预设<br>无限次导出无水印高清照片</p>
+    <div class="price">¥199</div>
+    <div class="price-sub">年度会员 · 持续更新</div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" id="btnPay">微信扫码支付</button>
+    <button class="btn btn-ghost" style="margin-top:8px;width:100%;justify-content:center" id="btnCloseModal">稍后再说</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+
+<script>
+// ===== STATE =====
+let originalImage = null;
+let currentPreset = 0;
+let isPro = false; // Set to true for paid users
+let zoom = 1;
+let comparing = false;
+let hslMode = 'hue';
+let hslColor = 'red';
+
+// Slider values (0-200 scale, 100 = neutral)
+const sliders = {
+  exposure: 100, contrast: 100, highlights: 100, shadows: 100,
+  whites: 100, blacks: 100, temperature: 100, tint: 100,
+  vibrance:  vibrance: 100, saturation: 100, fade: 0, grain: 0,
+  vignette: 0, sharpen: 0, hslSlider: 100
+};
+
+// Preset definitions
+const presets = [
+  { name: '原图', values: { exposure:100,contrast:100,highlights:100,shadows:100,whites:100,blacks:100,temperature:100,tint:100,vibrance:100,saturation:100,fade:0,grain:0,vignette:0,sharpen:0 } },
+  { name: '蓝调时刻', values: { exposure:105,contrast:110,highlights:90,shadows:105,whites:95,blacks:108,temperature:85,tint:102,vibrance:90,saturation:85,fade:15,grain:10,vignette:20,sharpen:5 } },
+  { name: '白日梦', values: { exposure:108,contrast:85,highlights:80,shadows:110,whites:95,blacks:90,temperature:105,tint:98,vibrance:80,saturation:75,fade:30,grain:15,vignette:25,sharpen:0 } },
+  { name: '胶片记忆', values: { exposure:102,contrast:115,highlights:85,shadows:95,whites:90,blacks:110,temperature:110,tint:105,vibrance:85,saturation:90,fade:20,grain:25,vignette:15,sharpen:10 } }
+];
+
+// ===== DOM REFS =====
+const mainCanvas = document.getElementById('mainCanvas');
+const ctx = mainCanvas.getContext('2d');
+const histCanvas = document.getElementById('histogramCanvas');
+const histCtx = histCanvas.getContext('2d');
+const emptyState = document.getElementById('emptyState');
+const canvasInner = document.getElementById('canvasInner');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const filename = document.getElementById('filename');
+const imageInfo = document.getElementById('imageInfo');
+const zoomLevel = document.getElementById('zoomLevel');
+const toast = document.getElementById('toast');
+const payModal = document.getElementById('payModal');
+
+// ===== IMAGE LOADING =====
+function loadImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      filename.textContent = file.name;
+      imageInfo.textContent = `${img.width} × ${img.height} · ${(file.size/1024/1024).toFixed(1)}MB`;
+      emptyState.style.display = 'none';
+      canvasInner.style.display = 'block';
+      resetAllSliders();
+      currentPreset = 0;
+      updatePresetUI();
+      fitImage();
+      render();
+      updateHistogram();
+      updatePresetPreviews();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function fitImage() {
+  if (!originalImage) return;
+  const wrap = document.getElementById('canvasWrap');
+  const maxW = wrap.clientWidth - 48;
+  const maxH = wrap.clientHeight - 48;
+  const scale = Math.min(maxW / originalImage.width, maxH / originalImage.height, 1);
+  zoom = scale;
+  mainCanvas.width = originalImage.width;
+  mainCanvas.height = originalImage.height;
+  mainCanvas.style.width = (originalImage.width * zoom) + 'px';
+  mainCanvas.style.height = (originalImage.height * zoom) + 'px';
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+}
+
+// ===== RENDER ENGINE =====
+function render() {
+  if (!originalImage) return;
+  const w = mainCanvas.width, h = mainCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (comparing) {
+    // Show original on left half
+    ctx.drawImage(originalImage, 0, 0, w/2, h, 0, 0, w/2, h);
+    // Show edited on right half
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(w/2, 0, w/2, h);
+    ctx.clip();
+    applyEdits();
+    ctx.restore();
+    // Divider line
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(w/2, 0);
+    ctx.lineTo(w/2, h);
+    ctx.stroke();
+  } else {
+    applyEdits();
+  }
+}
+
+function applyEdits() {
+  const w = mainCanvas.width, h = mainCanvas.height;
+  // Draw base image
+  ctx.drawImage(originalImage, 0, 0, w, h);
+
+  // Get image data for pixel manipulation
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+
+  // Apply sliders
+  const exp = (sliders.exposure - 100) / 100 * 2; // -2 to +2 stops
+  const con = (sliders.contrast - 100) / 100;
+  const hl = (sliders.highlights - 100) / 100;
+  const sh = (sliders.shadows - 100) / 100;
+  const wh = (sliders.whites - 100) / 100;
+  const bl = (sliders.blacks - 100) / 100;
+  const temp = (sliders.temperature - 100) / 100;
+  const tint = (sliders.tint - 100) / 100;
+  const vib = (sliders.vibrance - 100) / 100;
+  const sat = (sliders.saturation - 100) / 100;
+  const fade = sliders.fade / 100;
+  const grain = sliders.grain / 100;
+  const vignette = sliders.vignette / 100;
+  const sharpen = sliders.sharpen / 100;
+
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i], g = data[i+1], b = data[i+2];
+
+    // Exposure
+    const expFactor = Math.pow(2, exp);
+    r *= expFactor; g *= expFactor; b *= expFactor;
+
+    // Contrast
+    r = ((r/255 - 0.5) * (1 + con) + 0.5) * 255;
+    g = ((g/255 - 0.5) * (1 + con) + 0.5) * 255;
+    b = ((b/255 - 0.5) * (1 + con) + 0.5) * 255;
+
+    // Highlights / Shadows / Whites / Blacks
+    const lum = 0.299*r + 0.587*g + 0.114*b;
+    const hlFactor = lum > 170 ? (1 + hl * (lum-170)/85) : 1;
+    const shFactor = lum < 85 ? (1 + sh * (85-lum)/85) : 1;
+    r *= hlFactor * shFactor;
+    g *= hlFactor * shFactor;
+    b *= hlFactor * shFactor;
+
+    // Temperature (blue-yellow)
+    r += temp * 30;
+    b -= temp * 30;
+    // Tint (green-magenta)
+    r += tint * 20;
+    g -= tint * 20;
+    b += tint * 20;
+
+    // Vibrance (boost low-saturation colors more)
+    const maxC = Math.max(r,g,b), minC = Math.min(r,g,b);
+    const chroma = maxC - minC;
+    const vibFactor = 1 + vib * (1 - chroma/255);
+    r = (r - (r+g+b)/3) * vibFactor + (r+g+b)/3;
+    g = (g - (r+g+b)/3) * vibFactor + (r+g+b)/3;
+    b = (b - (r+g+b)/3) * vibFactor + (r+g+b)/3;
+
+    // Saturation
+    const gray = 0.299*r + 0.587*g + 0.114*b;
+    r = gray + (r - gray) * (1 + sat);
+    g = gray + (g - gray) * (1 + sat);
+    b = gray + (b - gray) * (1 + sat);
+
+    // Fade (lift blacks, compress highlights)
+    if (fade > 0) {
+      r = r + (128 - r) * fade * 0.5;
+      g = g + (128 - g) * fade * 0.5;
+      b = b + (128 - b) * fade * 0.5;
+    }
+
+    // Clamp
+    data[i] = Math.max(0, Math.min(255, r));
+    data[i+1] = Math.max(0, Math.min(255, g));
+    data[i+2] = Math.max(0, Math.min(255, b));
+  }
+
+  // Put back
+  ctx.putImageData(imageData, 0, 0);
+
+  // Vignette
+  if (vignette > 0) {
+    const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.4, w/2, h/2, Math.max(w,h)*0.75);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, `rgba(0,0,0,${vignette * 0.8})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Grain
+  if (grain > 0) {
+    const grainData = ctx.getImageData(0, 0, w, h);
+    for (let i = 0; i < grainData.data.length; i += 4) {
+      const noise = (Math.random() - 0.5) * grain * 80;
+      grainData.data[i] = Math.max(0, Math.min(255, grainData.data[i] + noise));
+      grainData.data[i+1] = Math.max(0, Math.min(255, grainData.data[i+1] + noise));
+      grainData.data[i+2] = Math.max(0, Math.min(255, grainData.data[i+2] + noise));
+    }
+    ctx.putImageData(grainData, 0, 0);
+  }
+
+  // Watermark for free users
+  if (!isPro && currentPreset > 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = `${Math.max(12, w/40)}px "Inter","Noto Sans SC",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('显影 · 赵明皓', w/2, h/2);
+  }
+}
+
+// ===== HISTOGRAM =====
+function updateHistogram() {
+  if (!originalImage) return;
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = mainCanvas.width;
+  tempCanvas.height = mainCanvas.height;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.drawImage(mainCanvas, 0, 0);
+  const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+  const data = imageData.data;
+
+  const histR = new Array(256).fill(0);
+  const histG = new Array(256).fill(0);
+  const histB = new Array(256).fill(0);
+
+  for (let i = 0; i < data.length; i += 4) {
+    histR[data[i]]++;
+    histG[data[i+1]]++;
+    histB[data[i+2]]++;
+  }
+
+  const max = Math.max(...histR, ...histG, ...histB, 1);
+  const hw = histCanvas.width = histCanvas.clientWidth * 2;
+  const hh = histCanvas.height = 56 * 2;
+  histCtx.clearRect(0, 0, hw, hh);
+
+  [histR, histG, histB].forEach((hist, idx) => {
+    histCtx.beginPath();
+    histCtx.strokeStyle = idx === 0 ? 'rgba(255,60,60,0.7)' : idx === 1 ? 'rgba(50,200,80,0.7)' : 'rgba(60,100,255,0.7)';
+    histCtx.lineWidth = 1.5;
+    for (let x = 0; x < 256; x++) {
+      const y = hh - (hist[x] / max) * hh;
+      if (x === 0) histCtx.moveTo(x * hw/256, y);
+      else histCtx.lineTo(x * hw/256, y);
+    }
+    histCtx.stroke();
+  });
+}
+
+// ===== PRESETS =====
+function applyPreset(index) {
+  if (index > 0 && !isPro) {
+    showPayModal();
+    return;
+  }
+  currentPreset = index;
+  const preset = presets[index];
+  Object.keys(preset.values).forEach(key => {
+    sliders[key] = preset.values[key];
+    updateSliderUI(key);
+  });
+  updatePresetUI();
+  render();
+  updateHistogram();
+}
+
+function updatePresetUI() {
+  document.querySelectorAll('.preset-card').forEach((card, i) => {
+    card.classList.toggle('active', i === currentPreset);
+  });
+}
+
+function updatePresetPreviews() {
+  if (!originalImage) return;
+  document.querySelectorAll('.preset-preview').forEach((canvas, i) => {
+    const pctx = canvas.getContext('2d');
+    canvas.width = canvas.clientWidth * 2;
+    canvas.height = canvas.clientHeight * 2;
+    pctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+    // Apply preset effect to preview
+    if (i > 0) {
+      const imgData = pctx.getImageData(0, 0, canvas.width, canvas.height);
+      const p = presets[i].values;
+      const d = imgData.data;
+      const exp = (p.exposure - 100) / 100 * 2;
+      const temp = (p.temperature - 100) / 100;
+      const sat = (p.saturation - 100) / 100;
+      const fade = p.fade / 100;
+      for (let j = 0; j < d.length; j += 4) {
+        let r = d[j], g = d[j+1], b = d[j+2];
+        const ef = Math.pow(2, exp);
+        r *= ef; g *= ef; b *= ef;
+        r += temp * 30; b -= temp * 30;
+        const gray = 0.299*r + 0.587*g + 0.114*b;
+        r = gray + (r-gray)*(1+sat); g = gray + (g-gray)*(1+sat); b = gray + (b-gray)*(1+sat);
+        if (fade > 0) { r += (128-r)*fade*0.5; g += (128-g)*fade*0.5; b += (128-b)*fade*0.5; }
+        d[j] = Math.max(0,Math.min(255,r));
+        d[j+1] = Math.max(0,Math.min(255,g));
+        d[j+2] = Math.max(0,Math.min(255,b));
+      }
+      pctx.putImageData(imgData, 0, 0);
+    }
+  });
+}
+
+// ===== SLIDER HANDLING =====
+function updateSliderUI(key) {
+  const slider = document.getElementById(key);
+  const valEl = document.getElementById('val' + key.charAt(0).toUpperCase() + key.slice(1));
+  if (slider) slider.value = sliders[key];
+  if (valEl) valEl.textContent = sliders[key] === 100 && !['fade','grain','vignette','sharpen'].includes(key) ? '0' : sliders[key];
+}
+
+function resetAllSliders() {
+  const defaults = presets[0].values;
+  Object.keys(defaults).forEach(key => {
+    sliders[key] = defaults[key];
+    updateSliderUI(key);
+  });
+}
+
+// Bind all sliders
+document.querySelectorAll('input[type="range"]').forEach(slider => {
+  slider.addEventListener('input', () => {
+    const key = slider.id;
+    sliders[key] = parseInt(slider.value);
+    const valEl = document.getElementById('val' + key.charAt(0).toUpperCase() + key.slice(1));
+    if (valEl) valEl.textContent = sliders[key] === 100 && !['fade','grain','vignette','sharpen','hslSlider'].includes(key) ? '0' : sliders[key];
+    currentPreset = -1; // Custom adjustment
+    updatePresetUI();
+    render();
+    updateHistogram();
+  });
+});
+
+// Reset buttons
+document.querySelectorAll('.reset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.target;
+    const def = presets[0].values[target] !== undefined ? presets[0].values[target] : 100;
+    sliders[target] = def;
+    updateSliderUI(target);
+    render();
+    updateHistogram();
+  });
+});
+
+// ===== SECTION COLLAPSE =====
+document.querySelectorAll('.section-collapse').forEach(header => {
+  header.addEventListener('click', () => {
+    header.classList.toggle('collapsed');
+    const sectionId = 'section' + header.dataset.section.charAt(0).toUpperCase() + header.dataset.section.slice(1);
+    const content = document.getElementById(sectionId);
+    if (content) content.classList.toggle('collapsed');
+  });
+});
+
+// ===== HSL TABS =====
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    tab.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    hslMode = tab.dataset.hsl;
+  });
+});
+
+document.querySelectorAll('.hsl-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.parentElement.querySelectorAll('.hsl-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    hslColor = chip.dataset.color;
+    document.getElementById('hsl显影el').textContent =
+      {red:'红色',orange:'橙色',yellow:'黄色',green:'绿色',cyan:'青色',blue:'蓝色',purple:'紫色',magenta:'洋红'}[hslColor] +
+      {hue:'色相',sat:'饱和度',lum:'明亮度'}[hslMode];
+  });
+});
+
+// ===== PRESET CLICK =====
+document.querySelectorAll('.preset-card').forEach(card => {
+  card.addEventListener('click', () => {
+    applyPreset(parseInt(card.dataset.preset));
+  });
+});
+
+// ===== FILE HANDLING =====
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) loadImage(e.target.files[0]);
+});
+
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+document.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+// ===== BUTTONS =====
+document.getElementById('btnReset').addEventListener('click', () => {
+  applyPreset(0);
+  showToast('已重置');
+});
+
+document.getElementById('btnCompare').addEventListener('mousedown', () => { comparing = true; render(); });
+document.getElementById('btnCompare').addEventListener('mouseup', () => { comparing = false; render(); });
+document.getElementById('btnCompare').addEventListener('mouseleave', () => { comparing = false; render(); });
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  if (!originalImage) return showToast('请先上传照片');
+  if (!isPro && currentPreset > 0) return showPayModal();
+  const link = document.createElement('a');
+  link.download = 'colorlab_' + Date.now() + '.png';
+  link.href = mainCanvas.toDataURL('image/png');
+  link.click();
+  showToast('导出成功 ✓');
+});
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+  if (!originalImage) return;
+  zoom = Math.min(3, zoom + 0.25);
+  mainCanvas.style.width = (originalImage.width * zoom) + 'px';
+  mainCanvas.style.height = (originalImage.height * zoom) + 'px';
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+});
+
+document.getElementById('zoomOut').addEventListener('click', () => {
+  if (!originalImage) return;
+  zoom = Math.max(0.1, zoom - 0.25);
+  mainCanvas.style.width = (originalImage.width * zoom) + 'px';
+  mainCanvas.style.height = (originalImage.height * zoom) + 'px';
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+});
+
+// ===== PAYMENT MODAL =====
+function showPayModal() {
+  payModal.classList.add('show');
+}
+
+document.getElementById('btnCloseModal').addEventListener('click', () => {
+  payModal.classList.remove('show');
+});
+
+document.getElementById('btnPay').addEventListener('click', () => {
+  showToast('支付功能即将上线 · 请先加微信体验');
+  payModal.classList.remove('show');
+});
+
+// ===== TOAST =====
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'r' && e.ctrlKey) { e.preventDefault(); applyPreset(0); }
+  if (e.key === 'e' && e.ctrlKey) { e.preventDefault(); document.getElementById('btnExport').click(); }
+  if (e.key === '0') applyPreset(0);
+  if (e.key === '1') applyPreset(1);
+  if (e.key === '2') applyPreset(2);
+  if (e.key === '3') applyPreset(3);
+});
+
+// ===== INIT =====
+console.log('🎨 显影 · 显影 · 影像后期工作站 · 已就绪');
+console.log('拖入照片开始调色 | 快捷键: 0-3 切换预设 | Ctrl+E 导出 | Ctrl+R 重置');
+</script>
+</body>
+</html>
