@@ -1162,20 +1162,35 @@ let comparing = false;
 let hslMode = 'hue';
 let hslColor = 'red';
 
-// Slider values (0-200 scale, 100 = neutral)
+// Slider values
 const sliders = {
   exposure: 100, contrast: 100, highlights: 100, shadows: 100,
   whites: 100, blacks: 100, temperature: 100, tint: 100,
-  vibrance:  vibrance: 100, saturation: 100, fade: 0, grain: 0,
-  vignette: 0, sharpen: 0, hslSlider: 100
+  vibrance: 100, saturation: 100, fade: 0, grain: 0,
+  vignette: 0, sharpen: 0, hslSlider: 100,
+  // Color Grading
+  gradeHue: 0, gradeSat: 0, gradeLum: 0, gradeBlend: 100,
+  // Detail
+  sharpAmount: 0, sharpRadius: 10, sharpDetail: 25, sharpMask: 0,
+  nrLuma: 0, nrColor: 25,
+  // Optics
+  distortion: 0, ca: 0, vignetteComp: 0,
+  // Lens Blur
+  blurAmount: 0, bokeh: 0,
+  // Calibration
+  calShadow: 0, calRedHue: 0, calRedSat: 0,
+  calGreenHue: 0, calGreenSat: 0, calBlueHue: 0, calBlueSat: 0
 };
+
+// Preset defaults (all new sliders default to neutral)
+const defaultSliderValues = Object.assign({}, sliders);
 
 // Preset definitions
 const presets = [
-  { name: '原图', values: { exposure:100,contrast:100,highlights:100,shadows:100,whites:100,blacks:100,temperature:100,tint:100,vibrance:100,saturation:100,fade:0,grain:0,vignette:0,sharpen:0 } },
-  { name: '蓝调时刻', values: { exposure:105,contrast:110,highlights:90,shadows:105,whites:95,blacks:108,temperature:85,tint:102,vibrance:90,saturation:85,fade:15,grain:10,vignette:20,sharpen:5 } },
-  { name: '白日梦', values: { exposure:108,contrast:85,highlights:80,shadows:110,whites:95,blacks:90,temperature:105,tint:98,vibrance:80,saturation:75,fade:30,grain:15,vignette:25,sharpen:0 } },
-  { name: '胶片记忆', values: { exposure:102,contrast:115,highlights:85,shadows:95,whites:90,blacks:110,temperature:110,tint:105,vibrance:85,saturation:90,fade:20,grain:25,vignette:15,sharpen:10 } }
+  { name: '原图', values: Object.assign({}, defaultSliderValues) },
+  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:105,contrast:110,highlights:90,shadows:105,whites:95,blacks:108,temperature:85,tint:102,vibrance:90,saturation:85,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:108,contrast:85,highlights:80,shadows:110,whites:95,blacks:90,temperature:105,tint:98,vibrance:80,saturation:75,fade:30,grain:15,vignette:25,sharpen:0,gradeHue:40,gradeSat:10,gradeLum:10,gradeBlend:50,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:15,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:102,contrast:115,highlights:85,shadows:95,whites:90,blacks:110,temperature:110,tint:105,vibrance:85,saturation:90,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
 // ===== DOM REFS =====
@@ -1260,24 +1275,156 @@ function render() {
   }
 }
 
+// ===== CONVOLUTION HELPER =====
+function convolve(imageData, kernel, kernelSize) {
+  const w = imageData.width, h = imageData.height;
+  const src = new Uint8ClampedArray(imageData.data);
+  const dst = new Uint8ClampedArray(src.length);
+  const half = Math.floor(kernelSize / 2);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let r = 0, g = 0, b = 0, total = 0;
+      for (let ky = 0; ky < kernelSize; ky++) {
+        for (let kx = 0; kx < kernelSize; kx++) {
+          const sx = Math.min(Math.max(x + kx - half, 0), w - 1);
+          const sy = Math.min(Math.max(y + ky - half, 0), h - 1);
+          const idx = (sy * w + sx) * 4;
+          const k = kernel[ky * kernelSize + kx];
+          r += src[idx] * k;
+          g += src[idx + 1] * k;
+          b += src[idx + 2] * k;
+          total += k;
+        }
+      }
+      if (total === 0) total = 1;
+      const di = (y * w + x) * 4;
+      dst[di] = Math.max(0, Math.min(255, r / total));
+      dst[di + 1] = Math.max(0, Math.min(255, g / total));
+      dst[di + 2] = Math.max(0, Math.min(255, b / total));
+      dst[di + 3] = src[di + 3];
+    }
+  }
+  imageData.data.set(dst);
+}
+
+// ===== BOX BLUR =====
+function boxBlur(imageData, radius) {
+  if (radius < 1) return;
+  const w = imageData.width, h = imageData.height;
+  const src = new Uint8ClampedArray(imageData.data);
+  const tmp = new Uint8ClampedArray(src.length);
+  const r = Math.floor(radius);
+  // Horizontal pass
+  for (let y = 0; y < h; y++) {
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    for (let x = -r; x <= r; x++) {
+      const sx = Math.min(Math.max(x, 0), w - 1);
+      const idx = (y * w + sx) * 4;
+      rSum += src[idx]; gSum += src[idx + 1]; bSum += src[idx + 2];
+      count++;
+    }
+    for (let x = 0; x < w; x++) {
+      const di = (y * w + x) * 4;
+      tmp[di] = rSum / count;
+      tmp[di + 1] = gSum / count;
+      tmp[di + 2] = bSum / count;
+      tmp[di + 3] = src[di + 3];
+      const outX = x - r;
+      if (outX >= 0) {
+        const oi = (y * w + outX) * 4;
+        rSum -= src[oi]; gSum -= src[oi + 1]; bSum -= src[oi + 2]; count--;
+      }
+      const inX = x + r + 1;
+      if (inX < w) {
+        const ii = (y * w + inX) * 4;
+        rSum += src[ii]; gSum += src[ii + 1]; bSum += src[ii + 2]; count++;
+      }
+    }
+  }
+  // Vertical pass
+  for (let x = 0; x < w; x++) {
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    for (let y = -r; y <= r; y++) {
+      const sy = Math.min(Math.max(y, 0), h - 1);
+      const idx = (sy * w + x) * 4;
+      rSum += tmp[idx]; gSum += tmp[idx + 1]; bSum += tmp[idx + 2];
+      count++;
+    }
+    for (let y = 0; y < h; y++) {
+      const di = (y * w + x) * 4;
+      imageData.data[di] = rSum / count;
+      imageData.data[di + 1] = gSum / count;
+      imageData.data[di + 2] = bSum / count;
+      const outY = y - r;
+      if (outY >= 0) {
+        const oi = (outY * w + x) * 4;
+        rSum -= tmp[oi]; gSum -= tmp[oi + 1]; bSum -= tmp[oi + 2]; count--;
+      }
+      const inY = y + r + 1;
+      if (inY < h) {
+        const ii = (inY * w + x) * 4;
+        rSum += tmp[ii]; gSum += tmp[ii + 1]; bSum += tmp[ii + 2]; count++;
+      }
+    }
+  }
+}
+
+// ===== RGB → HSL =====
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+
+function hslToRgb(h, s, l) {
+  h /= 360; s /= 100; l /= 100;
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
 function applyEdits() {
   const w = mainCanvas.width, h = mainCanvas.height;
-  // Draw base image
   ctx.drawImage(originalImage, 0, 0, w, h);
 
-  // Get image data for pixel manipulation
-  const imageData = ctx.getImageData(0, 0, w, h);
+  let imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
 
-  // Apply sliders
-  const exp = (sliders.exposure - 100) / 100 * 2; // -2 to +2 stops
+  // --- PARAMETER EXTRACTION ---
+  const exp = (sliders.exposure - 100) / 100 * 2;
   const con = (sliders.contrast - 100) / 100;
   const hl = (sliders.highlights - 100) / 100;
   const sh = (sliders.shadows - 100) / 100;
   const wh = (sliders.whites - 100) / 100;
   const bl = (sliders.blacks - 100) / 100;
   const temp = (sliders.temperature - 100) / 100;
-  const tint = (sliders.tint - 100) / 100;
+  const tintVal = (sliders.tint - 100) / 100;
   const vib = (sliders.vibrance - 100) / 100;
   const sat = (sliders.saturation - 100) / 100;
   const fade = sliders.fade / 100;
@@ -1285,6 +1432,86 @@ function applyEdits() {
   const vignette = sliders.vignette / 100;
   const sharpen = sliders.sharpen / 100;
 
+  // New engine params
+  const gradeHue = (sliders.gradeHue || 0) / 360;
+  const gradeSat = (sliders.gradeSat || 0) / 100;
+  const gradeLum = (sliders.gradeLum || 0) / 100;
+  const gradeBlend = (sliders.gradeBlend !== undefined ? sliders.gradeBlend : 100) / 100;
+  const sharpAmount = (sliders.sharpAmount || 0) / 100;
+  const sharpRadius = (sliders.sharpRadius || 10) / 10;
+  const sharpDetail = (sliders.sharpDetail || 25) / 100;
+  const sharpMask = (sliders.sharpMask || 0) / 100;
+  const nrLuma = (sliders.nrLuma || 0) / 100;
+  const nrColor = (sliders.nrColor || 25) / 100;
+  const distortion = (sliders.distortion || 0) / 100;
+  const ca = (sliders.ca || 0) / 100;
+  const vignetteComp = (sliders.vignetteComp || 0) / 100;
+  const blurAmount = (sliders.blurAmount || 0) / 100;
+  const bokeh = (sliders.bokeh || 0) / 100;
+  const calShadow = (sliders.calShadow || 0) / 100;
+  const calRedHue = (sliders.calRedHue || 0) / 100;
+  const calRedSat = (sliders.calRedSat || 0) / 100;
+  const calGreenHue = (sliders.calGreenHue || 0) / 100;
+  const calGreenSat = (sliders.calGreenSat || 0) / 100;
+  const calBlueHue = (sliders.calBlueHue || 0) / 100;
+  const calBlueSat = (sliders.calBlueSat || 0) / 100;
+
+  // --- LENS BLUR (pre-blur, applied first so subsequent ops work on blurred image) ---
+  if (blurAmount > 0) {
+    const blurR = blurAmount * 20 * (w / 1000);
+    boxBlur(imageData, blurR);
+    // Bokeh: second pass with slightly different radius for lens simulation
+    if (bokeh > 0) {
+      const bokehR = bokeh * 15 * (w / 1000);
+      boxBlur(imageData, bokehR * 0.5);
+    }
+  }
+
+  // --- CALIBRATION (RGB primary adjustment) ---
+  if (calRedHue !== 0 || calRedSat !== 0 || calGreenHue !== 0 || calGreenSat !== 0 ||
+      calBlueHue !== 0 || calBlueSat !== 0 || calShadow !== 0) {
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i], g = data[i+1], b = data[i+2];
+      const hsl = rgbToHsl(r, g, b);
+      // Red primary affects reds (hue 0-30, 330-360)
+      if (calRedHue !== 0 || calRedSat !== 0) {
+        const redDist = Math.min(Math.abs(hsl.h - 0), Math.abs(hsl.h - 360), Math.abs(hsl.h - 15));
+        if (redDist < 45) {
+          const factor = 1 - redDist / 45;
+          hsl.h = (hsl.h + calRedHue * 30 * factor + 360) % 360;
+          hsl.s = Math.max(0, Math.min(100, hsl.s + calRedSat * 50 * factor));
+        }
+      }
+      // Green primary
+      if (calGreenHue !== 0 || calGreenSat !== 0) {
+        const greenDist = Math.abs(hsl.h - 120);
+        if (greenDist < 45) {
+          const factor = 1 - greenDist / 45;
+          hsl.h = (hsl.h + calGreenHue * 30 * factor + 360) % 360;
+          hsl.s = Math.max(0, Math.min(100, hsl.s + calGreenSat * 50 * factor));
+        }
+      }
+      // Blue primary
+      if (calBlueHue !== 0 || calBlueSat !== 0) {
+        const blueDist = Math.abs(hsl.h - 240);
+        if (blueDist < 45) {
+          const factor = 1 - blueDist / 45;
+          hsl.h = (hsl.h + calBlueHue * 30 * factor + 360) % 360;
+          hsl.s = Math.max(0, Math.min(100, hsl.s + calBlueSat * 50 * factor));
+        }
+      }
+      // Shadow tint
+      if (calShadow !== 0 && hsl.l < 30) {
+        hsl.h = (hsl.h + calShadow * 60 + 360) % 360;
+      }
+      const rgb = hslToRgb(hsl.h, hsl.s, hsl.l);
+      data[i] = rgb.r; data[i+1] = rgb.g; data[i+2] = rgb.b;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    imageData = ctx.getImageData(0, 0, w, h);
+  }
+
+  // --- MAIN PIXEL PIPELINE ---
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i], g = data[i+1], b = data[i+2];
 
@@ -1304,16 +1531,22 @@ function applyEdits() {
     r *= hlFactor * shFactor;
     g *= hlFactor * shFactor;
     b *= hlFactor * shFactor;
+    // Whites & Blacks
+    const whFactor = lum > 220 ? (1 + wh * (lum-220)/35) : 1;
+    const blFactor = lum < 35 ? (1 + bl * (35-lum)/35) : 1;
+    r *= whFactor * blFactor;
+    g *= whFactor * blFactor;
+    b *= whFactor * blFactor;
 
-    // Temperature (blue-yellow)
+    // Temperature
     r += temp * 30;
     b -= temp * 30;
-    // Tint (green-magenta)
-    r += tint * 20;
-    g -= tint * 20;
-    b += tint * 20;
+    // Tint
+    r += tintVal * 20;
+    g -= tintVal * 20;
+    b += tintVal * 20;
 
-    // Vibrance (boost low-saturation colors more)
+    // Vibrance
     const maxC = Math.max(r,g,b), minC = Math.min(r,g,b);
     const chroma = maxC - minC;
     const vibFactor = 1 + vib * (1 - chroma/255);
@@ -1327,23 +1560,166 @@ function applyEdits() {
     g = gray + (g - gray) * (1 + sat);
     b = gray + (b - gray) * (1 + sat);
 
-    // Fade (lift blacks, compress highlights)
+    // Fade
     if (fade > 0) {
       r = r + (128 - r) * fade * 0.5;
       g = g + (128 - g) * fade * 0.5;
       b = b + (128 - b) * fade * 0.5;
     }
 
-    // Clamp
+    // --- COLOR GRADING (simplified: applies to all pixels with blend) ---
+    if (gradeBlend > 0 && (gradeHue !== 0 || gradeSat > 0 || gradeLum !== 0)) {
+      const gHsl = rgbToHsl(r, g, b);
+      const targetLum = gHsl.l;
+      // Apply grading based on luminance zone
+      let zoneFactor = 0;
+      if (targetLum < 85) zoneFactor = 1 - targetLum / 85; // shadows
+      else if (targetLum > 170) zoneFactor = (targetLum - 170) / 85; // highlights
+      // For now apply to midtones as well with lower factor
+      else zoneFactor = 0.3;
+      if (zoneFactor > 0) {
+        const gradingRgb = hslToRgb(gradeHue * 360, gradeSat * 100, 50 + gradeLum * 50);
+        const blend = zoneFactor * gradeBlend;
+        r = r + (gradingRgb.r - r) * blend;
+        g = g + (gradingRgb.g - g) * blend;
+        b = b + (gradingRgb.b - b) * blend;
+      }
+    }
+
     data[i] = Math.max(0, Math.min(255, r));
     data[i+1] = Math.max(0, Math.min(255, g));
     data[i+2] = Math.max(0, Math.min(255, b));
   }
 
-  // Put back
   ctx.putImageData(imageData, 0, 0);
 
-  // Vignette
+  // --- DETAIL: SHARPENING ---
+  if (sharpAmount > 0) {
+    const blurData = new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+    boxBlur(blurData, sharpRadius * 3);
+    const orig = imageData.data;
+    const blurred = blurData.data;
+    for (let i = 0; i < orig.length; i += 4) {
+      const diffR = orig[i] - blurred[i];
+      const diffG = orig[i+1] - blurred[i+1];
+      const diffB = orig[i+2] - blurred[i+2];
+      const edgeStrength = Math.abs(diffR) + Math.abs(diffG) + Math.abs(diffB);
+      // Detail control: amplify fine detail more
+      const detailFactor = sharpDetail * 2 + 0.5;
+      // Mask: only sharpen edges above threshold
+      const maskThreshold = sharpMask * 255 * 3;
+      if (edgeStrength > maskThreshold) {
+        orig[i] = Math.max(0, Math.min(255, orig[i] + diffR * sharpAmount * detailFactor));
+        orig[i+1] = Math.max(0, Math.min(255, orig[i+1] + diffG * sharpAmount * detailFactor));
+        orig[i+2] = Math.max(0, Math.min(255, orig[i+2] + diffB * sharpAmount * detailFactor));
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  // --- DETAIL: NOISE REDUCTION ---
+  if (nrLuma > 0 || nrColor > 0) {
+    const nrData = ctx.getImageData(0, 0, w, h);
+    const nrRadius = Math.max(1, Math.floor((nrLuma + nrColor) * 3));
+    const blurred = new ImageData(new Uint8ClampedArray(nrData.data), w, h);
+    boxBlur(blurred, nrRadius);
+    const orig = nrData.data, blur = blurred.data;
+    for (let i = 0; i < orig.length; i += 4) {
+      // Luma noise reduction
+      const lumaBlend = nrLuma;
+      if (lumaBlend > 0) {
+        orig[i] = orig[i] + (blur[i] - orig[i]) * lumaBlend;
+        orig[i+1] = orig[i+1] + (blur[i+1] - orig[i+1]) * lumaBlend;
+        orig[i+2] = orig[i+2] + (blur[i+2] - orig[i+2]) * lumaBlend;
+      }
+      // Color noise reduction (stronger on chroma channels)
+      const colorBlend = nrColor;
+      if (colorBlend > 0) {
+        const avgO = (orig[i] + orig[i+1] + orig[i+2]) / 3;
+        const avgB = (blur[i] + blur[i+1] + blur[i+2]) / 3;
+        orig[i] = orig[i] + ((blur[i] + (avgO - avgB)) - orig[i]) * colorBlend;
+        orig[i+1] = orig[i+1] + ((blur[i+1] + (avgO - avgB)) - orig[i+1]) * colorBlend;
+        orig[i+2] = orig[i+2] + ((blur[i+2] + (avgO - avgB)) - orig[i+2]) * colorBlend;
+      }
+    }
+    ctx.putImageData(nrData, 0, 0);
+  }
+
+  // --- OPTICS: DISTORTION ---
+  if (distortion !== 0) {
+    const distData = ctx.getImageData(0, 0, w, h);
+    const src = new Uint8ClampedArray(distData.data);
+    const cx = w / 2, cy = h / 2;
+    const maxR = Math.sqrt(cx*cx + cy*cy);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (x - cx) / cx;
+        const dy = (y - cy) / cy;
+        const r = Math.sqrt(dx*dx + dy*dy);
+        const k = distortion * 0.5;
+        const factor = 1 + k * r * r;
+        const sx = Math.round(cx + dx * cx * factor);
+        const sy = Math.round(cy + dy * cy * factor);
+        if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+          const di = (y * w + x) * 4;
+          const si = (sy * w + sx) * 4;
+          distData.data[di] = src[si];
+          distData.data[di+1] = src[si+1];
+          distData.data[di+2] = src[si+2];
+        }
+      }
+    }
+    ctx.putImageData(distData, 0, 0);
+  }
+
+  // --- OPTICS: CHROMATIC ABERRATION ---
+  if (ca > 0) {
+    const caData = ctx.getImageData(0, 0, w, h);
+    const src = new Uint8ClampedArray(caData.data);
+    const cx = w / 2, cy = h / 2;
+    const shift = ca * 4;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx*dx + dy*dy) / Math.max(cx, cy);
+        const s = shift * dist;
+        const di = (y * w + x) * 4;
+        // Red channel shifted outward
+        const rx = Math.round(x + dx * s / Math.max(1, dist * Math.max(cx, cy)));
+        const ry = Math.round(y + dy * s / Math.max(1, dist * Math.max(cx, cy)));
+        if (rx >= 0 && rx < w && ry >= 0 && ry < h) {
+          caData.data[di] = src[(ry * w + rx) * 4];
+        }
+        // Blue channel shifted inward
+        const bx = Math.round(x - dx * s / Math.max(1, dist * Math.max(cx, cy)));
+        const by = Math.round(y - dy * s / Math.max(1, dist * Math.max(cx, cy)));
+        if (bx >= 0 && bx < w && by >= 0 && by < h) {
+          caData.data[di+2] = src[(by * w + bx) * 4 + 2];
+        }
+      }
+    }
+    ctx.putImageData(caData, 0, 0);
+  }
+
+  // --- OPTICS: VIGNETTE COMPENSATION ---
+  if (vignetteComp > 0) {
+    const vcData = ctx.getImageData(0, 0, w, h);
+    const vcx = w / 2, vcy = h / 2;
+    const maxDist = Math.sqrt(vcx*vcx + vcy*vcy);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dist = Math.sqrt((x-vcx)*(x-vcx) + (y-vcy)*(y-vcy)) / maxDist;
+        const brighten = 1 + dist * dist * vignetteComp * 0.8;
+        const di = (y * w + x) * 4;
+        vcData.data[di] = Math.min(255, vcData.data[di] * brighten);
+        vcData.data[di+1] = Math.min(255, vcData.data[di+1] * brighten);
+        vcData.data[di+2] = Math.min(255, vcData.data[di+2] * brighten);
+      }
+    }
+    ctx.putImageData(vcData, 0, 0);
+  }
+
+  // --- EFFECT: VIGNETTE (creative) ---
   if (vignette > 0) {
     const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.4, w/2, h/2, Math.max(w,h)*0.75);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -1352,7 +1728,7 @@ function applyEdits() {
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Grain
+  // --- EFFECT: GRAIN ---
   if (grain > 0) {
     const grainData = ctx.getImageData(0, 0, w, h);
     for (let i = 0; i < grainData.data.length; i += 4) {
@@ -1364,7 +1740,7 @@ function applyEdits() {
     ctx.putImageData(grainData, 0, 0);
   }
 
-  // Watermark for free users
+  // --- WATERMARK ---
   if (!isPro && currentPreset > 0) {
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.font = `${Math.max(12, w/40)}px "Inter","Noto Sans SC",sans-serif`;
@@ -1469,11 +1845,25 @@ function updatePresetPreviews() {
 }
 
 // ===== SLIDER HANDLING =====
+// Sliders that use 0-100 scale (not 0-200 centered at 100)
+const percentSliders = ['fade','grain','vignette','sharpen','gradeSat','gradeBlend','sharpAmount','sharpDetail','sharpMask','nrLuma','nrColor','distortion','ca','vignetteComp','blurAmount','bokeh','calShadow','calRedHue','calRedSat','calGreenHue','calGreenSat','calBlueHue','calBlueSat'];
+const specialScale = { gradeHue: 360, sharpRadius: 10, gradeLum: -100 };
+
 function updateSliderUI(key) {
   const slider = document.getElementById(key);
   const valEl = document.getElementById('val' + key.charAt(0).toUpperCase() + key.slice(1));
   if (slider) slider.value = sliders[key];
-  if (valEl) valEl.textContent = sliders[key] === 100 && !['fade','grain','vignette','sharpen'].includes(key) ? '0' : sliders[key];
+  if (valEl) {
+    if (percentSliders.includes(key)) {
+      valEl.textContent = sliders[key];
+    } else if (key === 'gradeHue') {
+      valEl.textContent = sliders[key] + '°';
+    } else if (key === 'sharpRadius') {
+      valEl.textContent = (sliders[key] / 10).toFixed(1);
+    } else {
+      valEl.textContent = sliders[key] === 100 ? '0' : sliders[key] > 100 ? '+' + (sliders[key]-100) : (sliders[key]-100);
+    }
+  }
 }
 
 function resetAllSliders() {
@@ -1490,8 +1880,18 @@ document.querySelectorAll('input[type="range"]').forEach(slider => {
     const key = slider.id;
     sliders[key] = parseInt(slider.value);
     const valEl = document.getElementById('val' + key.charAt(0).toUpperCase() + key.slice(1));
-    if (valEl) valEl.textContent = sliders[key] === 100 && !['fade','grain','vignette','sharpen','hslSlider'].includes(key) ? '0' : sliders[key];
-    currentPreset = -1; // Custom adjustment
+    if (valEl) {
+      if (percentSliders.includes(key)) {
+        valEl.textContent = sliders[key];
+      } else if (key === 'gradeHue') {
+        valEl.textContent = sliders[key] + '°';
+      } else if (key === 'sharpRadius') {
+        valEl.textContent = (sliders[key] / 10).toFixed(1);
+      } else {
+        valEl.textContent = sliders[key] === 100 ? '0' : sliders[key] > 100 ? '+' + (sliders[key]-100) : (sliders[key]-100);
+      }
+    }
+    currentPreset = -1;
     updatePresetUI();
     render();
     updateHistogram();
