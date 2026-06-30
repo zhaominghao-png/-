@@ -1344,7 +1344,7 @@ const defaultSliderValues = Object.assign({}, sliders);
 const presets = [
   { name: '原图', values: Object.assign({}, defaultSliderValues) },
   { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:-22,contrast:-5,highlights:-15,shadows:-10,whites:-10,blacks:-8,temperature:-10,tint:-5,vibrance:-15,saturation:-10,texture:5,clarity:10,dehaze:5,curveHigh:-10,curveLight:-5,curveDark:-5,curveShadow:5,hslRedH:0,hslRedS:-20,hslRedL:-10,hslOrangeH:5,hslOrangeS:-15,hslOrangeL:-5,hslYellowH:10,hslYellowS:-20,hslYellowL:-5,hslGreenH:-10,hslGreenS:-25,hslGreenL:-15,hslCyanH:5,hslCyanS:0,hslCyanL:-10,hslBlueH:-5,hslBlueS:0,hslBlueL:-10,hslPurpleH:0,hslPurpleS:-10,hslPurpleL:-5,hslMagentaH:0,hslMagentaS:-10,hslMagentaL:-5,fade:8,grain:5,vignette:15,sharpen:0,gradeHue:200,gradeSat:10,gradeLum:-10,gradeBlend:40,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:-10,calRedHue:0,calRedSat:-10,calGreenHue:0,calGreenSat:-15,calBlueHue:0,calBlueSat:5 } },
   { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
@@ -2192,35 +2192,12 @@ function applyPreset(index) {
     });
   } catch(e) { console.error('applyPreset error:', e); }
 
-  // 白日梦预设：自动加载LUT
+  // 白日梦预设：用引擎参数（从明皓调色成片数据分析）
   if (index === 2) {
-    if (!colorLut3D && !window._brmLutLoading) {
-      window._brmLutLoading = true;
-      fetch('白日梦.cube')
-        .then(r => r.text())
-        .then(text => {
-          const lut = parseCubeFile(text);
-          if (lut) {
-            colorLut3D = lut;
-            lutStrength = 100;
-            document.getElementById('lutStatus').textContent = '✅ 白日梦.cube (32³)';
-            document.getElementById('lutIntensityGroup').hidden = false;
-            document.getElementById('clearLutBtn').style.display = 'block';
-            const islider = document.getElementById('lutIntensity');
-            if (islider) { islider.value = 100; }
-            document.getElementById('valLutIntensity').textContent = '100';
-            showToast('白日梦 LUT 已加载');
-            scheduleRender();
-          }
-        })
-        .catch(e => console.error('LUT load error:', e));
-    } else if (colorLut3D) {
-      lutStrength = 100;
-      const islider = document.getElementById('lutIntensity');
-      if (islider) { islider.value = 100; }
-      document.getElementById('valLutIntensity').textContent = '100';
-      scheduleRender();
-    }
+    colorLut3D = null;
+    document.getElementById('lutStatus').textContent = '📂 点击加载 .cube 文件';
+    document.getElementById('lutIntensityGroup').hidden = true;
+    document.getElementById('clearLutBtn').style.display = 'none';
   }
 
   updatePresetUI();
