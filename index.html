@@ -1164,10 +1164,10 @@ let hslColor = 'red';
 
 // Slider values
 const sliders = {
-  exposure: 100, contrast: 100, highlights: 100, shadows: 100,
-  whites: 100, blacks: 100, temperature: 100, tint: 100,
-  vibrance: 100, saturation: 100, fade: 0, grain: 0,
-  vignette: 0, sharpen: 0, hslSlider: 100,
+  exposure: 0, contrast: 0, highlights: 0, shadows: 0,
+  whites: 0, blacks: 0, temperature: 0, tint: 0,
+  vibrance: 0, saturation: 0, fade: 0, grain: 0,
+  vignette: 0, sharpen: 0, hslSlider: 0,
   // Color Grading
   gradeHue: 0, gradeSat: 0, gradeLum: 0, gradeBlend: 100,
   // Detail
@@ -1188,9 +1188,9 @@ const defaultSliderValues = Object.assign({}, sliders);
 // Preset definitions
 const presets = [
   { name: '原图', values: Object.assign({}, defaultSliderValues) },
-  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:105,contrast:110,highlights:90,shadows:105,whites:95,blacks:108,temperature:85,tint:102,vibrance:90,saturation:85,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '白日梦', values: { ...defaultSliderValues, exposure:108,contrast:85,highlights:80,shadows:110,whites:95,blacks:90,temperature:105,tint:98,vibrance:80,saturation:75,fade:30,grain:15,vignette:25,sharpen:0,gradeHue:40,gradeSat:10,gradeLum:10,gradeBlend:50,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:15,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:102,contrast:115,highlights:85,shadows:95,whites:90,blacks:110,temperature:110,tint:105,vibrance:85,saturation:90,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
+  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:8,contrast:-15,highlights:-20,shadows:10,whites:-5,blacks:-10,temperature:5,tint:-2,vibrance:-20,saturation:-25,fade:30,grain:15,vignette:25,sharpen:0,gradeHue:40,gradeSat:10,gradeLum:10,gradeBlend:50,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:15,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
 // ===== DOM REFS =====
@@ -1417,16 +1417,16 @@ function applyEdits() {
   const data = imageData.data;
 
   // --- PARAMETER EXTRACTION ---
-  const exp = (sliders.exposure - 100) / 100 * 2;
-  const con = (sliders.contrast - 100) / 100;
-  const hl = (sliders.highlights - 100) / 100;
-  const sh = (sliders.shadows - 100) / 100;
-  const wh = (sliders.whites - 100) / 100;
-  const bl = (sliders.blacks - 100) / 100;
-  const temp = (sliders.temperature - 100) / 100;
-  const tintVal = (sliders.tint - 100) / 100;
-  const vib = (sliders.vibrance - 100) / 100;
-  const sat = (sliders.saturation - 100) / 100;
+  const exp = sliders.exposure / 50;
+  const con = sliders.contrast / 100;
+  const hl = sliders.highlights / 100;
+  const sh = sliders.shadows / 100;
+  const wh = sliders.whites / 100;
+  const bl = sliders.blacks / 100;
+  const temp = sliders.temperature / 100;
+  const tintVal = sliders.tint / 100;
+  const vib = sliders.vibrance / 100;
+  const sat = sliders.saturation / 100;
   const fade = sliders.fade / 100;
   const grain = sliders.grain / 100;
   const vignette = sliders.vignette / 100;
@@ -1823,9 +1823,9 @@ function updatePresetPreviews() {
       const imgData = pctx.getImageData(0, 0, canvas.width, canvas.height);
       const p = presets[i].values;
       const d = imgData.data;
-      const exp = (p.exposure - 100) / 100 * 2;
-      const temp = (p.temperature - 100) / 100;
-      const sat = (p.saturation - 100) / 100;
+      const exp = p.exposure / 50;
+      const temp = p.temperature / 100;
+      const sat = p.saturation / 100;
       const fade = p.fade / 100;
       for (let j = 0; j < d.length; j += 4) {
         let r = d[j], g = d[j+1], b = d[j+2];
@@ -1861,7 +1861,7 @@ function updateSliderUI(key) {
     } else if (key === 'sharpRadius') {
       valEl.textContent = (sliders[key] / 10).toFixed(1);
     } else {
-      valEl.textContent = sliders[key] === 100 ? '0' : sliders[key] > 100 ? '+' + (sliders[key]-100) : (sliders[key]-100);
+      valEl.textContent = sliders[key] === 0 ? '0' : sliders[key] > 0 ? '+' + sliders[key] : sliders[key];
     }
   }
 }
