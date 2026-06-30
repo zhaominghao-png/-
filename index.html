@@ -566,6 +566,20 @@
     border-color: var(--accent);
   }
 
+  /* LUT Upload */
+  .lut-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .lut-upload-area:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+  }
+
   /* Tabs */
   .tabs {
     display: flex;
@@ -750,6 +764,30 @@
           <canvas class="preset-preview" data-preview="3"></canvas>
           <div class="preset-label">胶片记忆</div>
         </div>
+      </div>
+    </div>
+
+    <!-- LUT -->
+    <div class="section-collapse" data-section="lut">
+      LUT 色彩配方
+      <span class="arrow">▾</span>
+    </div>
+    <div class="section-content collapsed" id="sectionLUT">
+      <div style="padding:8px 20px 12px">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">
+          从 PS 导出 .cube 文件，加载后一键套用你的专属色调
+        </div>
+        <div class="lut-upload-area" id="lutUpload">
+          <span id="lutStatus" style="font-size:13px;color:var(--text-dim)">📂 点击加载 .cube 文件</span>
+        </div>
+        <div class="slider-group" style="margin-top:10px" id="lutIntensityGroup" hidden>
+          <div class="slider-header"><span class="slider-label">LUT 强度</span><span class="slider-value" id="valLutIntensity">100</span></div>
+          <div class="slider-row">
+            <input type="range" id="lutIntensity" min="0" max="100" value="100" step="1">
+            <button class="reset-btn" data-target="lutIntensity">↺</button>
+          </div>
+        </div>
+        <button id="clearLutBtn" style="display:none;width:100%;margin-top:8px;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:12px">清除 LUT</button>
       </div>
     </div>
 
@@ -1264,6 +1302,10 @@ let comparing = false;
 let hslMode = 'hue';
 let hslColor = 'red';
 
+// 3D LUT
+let colorLut3D = null; // { size, data: Float32Array(r,g,b,...) }
+let lutStrength = 100; // 0-100, LUT混合强度
+
 // Slider values
 const sliders = {
   exposure: 0, contrast: 0, highlights: 0, shadows: 0,
@@ -1525,6 +1567,110 @@ function hslToRgb(h, s, l) {
   return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
 }
 
+// ===== 3D LUT ENGINE =====
+function parseCubeFile(text) {
+  const lines = text.split('\n').map(l => l.trim());
+  let size = 32;
+  let dataStart = 0;
+  const values = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.startsWith('#')) continue;
+    if (line.startsWith('LUT_3D_SIZE')) {
+      size = parseInt(line.split(/\s+/)[1]);
+    } else if (line.startsWith('DOMAIN_MIN') || line.startsWith('DOMAIN_MAX') || line.startsWith('TITLE')) {
+      continue;
+    } else {
+      const parts = line.split(/\s+/).filter(Boolean);
+      if (parts.length >= 3 && !isNaN(parseFloat(parts[0]))) {
+        values.push(parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2]));
+      }
+    }
+  }
+
+  if (values.length !== size * size * size * 3) {
+    console.error('LUT data mismatch: expected', size*size*size*3, 'got', values.length);
+    return null;
+  }
+
+  return { size, data: new Float32Array(values) };
+}
+
+function apply3DLUT(imageData, lut, intensity) {
+  if (!lut || intensity <= 0) return;
+  const { size, data } = lut;
+  const pixels = imageData.data;
+  const n = size - 1;
+  const blend = intensity / 100;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i] / 255;
+    const g = pixels[i + 1] / 255;
+    const b = pixels[i + 2] / 255;
+
+    // Trilinear interpolation
+    const rx = r * n, ry = g * n, rz = b * n;
+    const x0 = Math.floor(rx), y0 = Math.floor(ry), z0 = Math.floor(rz);
+    const x1 = Math.min(x0 + 1, n), y1 = Math.min(y0 + 1, n), z1 = Math.min(z0 + 1, n);
+    const dx = rx - x0, dy = ry - y0, dz = rz - z0;
+
+    const idx = (z, y, x) => (z * size * size + y * size + x) * 3;
+
+    // 8 corners
+    const c000 = idx(z0, y0, x0), c001 = idx(z0, y0, x1);
+    const c010 = idx(z0, y1, x0), c011 = idx(z0, y1, x1);
+    const c100 = idx(z1, y0, x0), c101 = idx(z1, y0, x1);
+    const c110 = idx(z1, y1, x0), c111 = idx(z1, y1, x1);
+
+    const lerp3 = (c) => data[c] * (1-dx)*(1-dy)*(1-dz) + data[c+1]*dx*(1-dy)*(1-dz) +
+                      data[c+2]*(1-dx)*dy*(1-dz) + data[c+3]*dx*dy*(1-dz) +
+                      data[c+4]*(1-dx)*(1-dy)*dz + data[c+5]*dx*(1-dy)*dz +
+                      data[c+6]*(1-dx)*dy*dz + data[c+7]*dx*dy*dz;
+
+    // Actually need to do per-corner indexing properly
+    const _000 = data[idx(z0,y0,x0)], _001 = data[idx(z0,y0,x1)];
+    const _010 = data[idx(z0,y1,x0)], _011 = data[idx(z0,y1,x1)];
+    const _100 = data[idx(z1,y0,x0)], _101 = data[idx(z1,y0,x1)];
+    const _110 = data[idx(z1,y1,x0)], _111 = data[idx(z1,y1,x1)];
+    const _000g = data[idx(z0,y0,x0)+1], _001g = data[idx(z0,y0,x1)+1];
+    const _010g = data[idx(z0,y1,x0)+1], _011g = data[idx(z0,y1,x1)+1];
+    const _100g = data[idx(z1,y0,x0)+1], _101g = data[idx(z1,y0,x1)+1];
+    const _110g = data[idx(z1,y1,x0)+1], _111g = data[idx(z1,y1,x1)+1];
+    const _000b = data[idx(z0,y0,x0)+2], _001b = data[idx(z0,y0,x0)+2];
+    const _010b = data[idx(z0,y1,x0)+2], _011b = data[idx(z0,y1,x1)+2];
+    const _100b = data[idx(z1,y0,x0)+2], _101b = data[idx(z1,y0,x1)+2];
+    const _110b = data[idx(z1,y1,x0)+2], _111b = data[idx(z1,y1,x1)+2];
+
+    const lr = _000*(1-dx)*(1-dy)*(1-dz) + _001*dx*(1-dy)*(1-dz) + _010*(1-dx)*dy*(1-dz) + _011*dx*dy*(1-dz) +
+               _100*(1-dx)*(1-dy)*dz + _101*dx*(1-dy)*dz + _110*(1-dx)*dy*dz + _111*dx*dy*dz;
+    const lg = _000g*(1-dx)*(1-dy)*(1-dz) + _001g*dx*(1-dy)*(1-dz) + _010g*(1-dx)*dy*(1-dz) + _011g*dx*dy*(1-dz) +
+               _100g*(1-dx)*(1-dy)*dz + _101g*dx*(1-dy)*dz + _110g*(1-dx)*dy*dz + _111g*dx*dy*dz;
+    const lb = _000b*(1-dx)*(1-dy)*(1-dz) + _001b*dx*(1-dy)*(1-dz) + _010b*(1-dx)*dy*(1-dz) + _011b*dx*dy*(1-dz) +
+               _100b*(1-dx)*(1-dy)*dz + _101b*dx*(1-dy)*dz + _110b*(1-dx)*dy*dz + _111b*dx*dy*dz;
+
+    pixels[i] = Math.round(pixels[i] + (lr * 255 - pixels[i]) * blend);
+    pixels[i + 1] = Math.round(pixels[i + 1] + (lg * 255 - pixels[i + 1]) * blend);
+    pixels[i + 2] = Math.round(pixels[i + 2] + (lb * 255 - pixels[i + 2]) * blend);
+  }
+}
+
+// LUT file loader
+function loadLUTFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const lut = parseCubeFile(e.target.result);
+    if (lut) {
+      colorLut3D = lut;
+      showToast('LUT 已加载: ' + file.name + ' (' + lut.size + '³)');
+      scheduleRender();
+    } else {
+      showToast('LUT 解析失败，请确认是 .cube 文件');
+    }
+  };
+  reader.readAsText(file);
+}
+
 function applyEdits() {
   const w = mainCanvas.width, h = mainCanvas.height;
   ctx.drawImage(originalImage, 0, 0, w, h);
@@ -1599,6 +1745,11 @@ function applyEdits() {
   if (curvePoints.red.length > 0) { const prev = curveChannel; curveChannel = 'red'; redLut = curveToLUT(); curveChannel = prev; }
   if (curvePoints.green.length > 0) { const prev = curveChannel; curveChannel = 'green'; greenLut = curveToLUT(); curveChannel = prev; }
   if (curvePoints.blue.length > 0) { const prev = curveChannel; curveChannel = 'blue'; blueLut = curveToLUT(); curveChannel = prev; }
+
+  // --- 3D LUT (applied first, before any other adjustments) ---
+  if (colorLut3D && lutStrength > 0) {
+    apply3DLUT(imageData, colorLut3D, lutStrength);
+  }
 
   // --- LENS BLUR (pre-blur, applied first so subsequent ops work on blurred image) ---
   if (blurAmount > 0) {
@@ -2554,6 +2705,69 @@ document.getElementById('curveCanvas').addEventListener('contextmenu', (e) => {
   drawCurve();
   scheduleRender();
 });
+
+// ===== LUT UPLOAD =====
+const lutUpload = document.getElementById('lutUpload');
+const lutFileInput = document.createElement('input');
+lutFileInput.type = 'file';
+lutFileInput.accept = '.cube';
+lutFileInput.style.display = 'none';
+document.body.appendChild(lutFileInput);
+
+lutUpload.addEventListener('click', () => lutFileInput.click());
+lutFileInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) loadLUTFile(e.target.files[0]);
+});
+
+// Drag & drop for LUT
+lutUpload.addEventListener('dragover', (e) => { e.preventDefault(); lutUpload.style.borderColor = 'var(--accent)'; });
+lutUpload.addEventListener('dragleave', () => { lutUpload.style.borderColor = 'var(--border)'; });
+lutUpload.addEventListener('drop', (e) => {
+  e.preventDefault();
+  lutUpload.style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.cube')) loadLUTFile(file);
+});
+
+// LUT intensity slider
+const lutIntensitySlider = document.getElementById('lutIntensity');
+if (lutIntensitySlider) {
+  lutIntensitySlider.addEventListener('input', () => {
+    lutStrength = parseInt(lutIntensitySlider.value);
+    document.getElementById('valLutIntensity').textContent = lutStrength;
+    scheduleRender();
+  });
+  lutIntensitySlider.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    lutStrength = 100;
+    lutIntensitySlider.value = 100;
+    document.getElementById('valLutIntensity').textContent = '100';
+    scheduleRender();
+  });
+}
+
+// Clear LUT
+document.getElementById('clearLutBtn').addEventListener('click', () => {
+  colorLut3D = null;
+  document.getElementById('lutStatus').textContent = '📂 点击加载 .cube 文件';
+  document.getElementById('lutIntensityGroup').hidden = true;
+  document.getElementById('clearLutBtn').style.display = 'none';
+  scheduleRender();
+});
+
+// Update LUT UI after load (called from loadLUTFile)
+const origLoadLUTFile = loadLUTFile;
+loadLUTFile = function(file) {
+  origLoadLUTFile(file);
+  // Update UI after a short delay to let the reader finish
+  setTimeout(() => {
+    if (colorLut3D) {
+      document.getElementById('lutStatus').textContent = '✅ ' + file.name + ' (' + colorLut3D.size + '³)';
+      document.getElementById('lutIntensityGroup').hidden = false;
+      document.getElementById('clearLutBtn').style.display = 'block';
+    }
+  }, 100);
+};
 
 // ===== INIT =====
 updatePresetCards();
