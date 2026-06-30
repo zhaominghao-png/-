@@ -1198,7 +1198,7 @@ const defaultSliderValues = Object.assign({}, sliders);
 const presets = [
   { name: '原图', values: Object.assign({}, defaultSliderValues) },
   { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '白日梦', values: { ...defaultSliderValues, exposure:5,contrast:-15,highlights:-30,shadows:20,whites:-15,blacks:-10,temperature:-25,tint:8,vibrance:-25,saturation:-30,fade:25,grain:50,vignette:15,sharpen:-10,gradeHue:200,gradeSat:15,gradeLum:-10,gradeBlend:50,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:10,nrColor:30,distortion:0,ca:0,vignetteComp:0,blurAmount:5,bokeh:15,calShadow:20,calRedHue:0,calRedSat:-15,calGreenHue:0,calGreenSat:-10,calBlueHue:10,calBlueSat:15 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
   { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
@@ -1798,12 +1798,16 @@ function updateHistogram() {
 // ===== PRESETS =====
 function applyPreset(index) {
   // if (index > 0 && !isPro) { showPayModal(); return; }  // disabled for testing
+  console.log('applyPreset called, index=' + index);
   currentPreset = index;
   const preset = presets[index];
-  Object.keys(preset.values).forEach(key => {
-    sliders[key] = preset.values[key];
-    updateSliderUI(key);
-  });
+  if (!preset) { console.error('preset not found for index ' + index); return; }
+  try {
+    Object.keys(preset.values).forEach(key => {
+      sliders[key] = preset.values[key];
+      updateSliderUI(key);
+    });
+  } catch(e) { console.error('applyPreset error:', e); }
   updatePresetUI();
   scheduleRender();
 }
@@ -1915,7 +1919,7 @@ document.querySelectorAll('input[type="range"]').forEach(slider => {
     }
     currentPreset = -1;
     updatePresetUI();
-    scheduleRender();
+    try { scheduleRender(); } catch(e) { console.error('render error:', e); }
   });
   // Double-click to reset
   slider.addEventListener('dblclick', (e) => {
