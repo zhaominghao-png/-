@@ -1233,15 +1233,21 @@ function loadImage(file) {
   reader.readAsDataURL(file);
 }
 
+// Render target: max 1200px wide for performance, original preserved for export
+const MAX_RENDER_W = 1200;
+let renderScale = 1;
+
 function fitImage() {
   if (!originalImage) return;
   const wrap = document.getElementById('canvasWrap');
   const maxW = wrap.clientWidth - 48;
   const maxH = wrap.clientHeight - 48;
-  const scale = Math.min(maxW / originalImage.width, maxH / originalImage.height, 1);
-  zoom = scale;
-  mainCanvas.width = originalImage.width;
-  mainCanvas.height = originalImage.height;
+  const displayScale = Math.min(maxW / originalImage.width, maxH / originalImage.height, 1);
+  zoom = displayScale;
+  // Render at reduced resolution for performance
+  renderScale = Math.min(1, MAX_RENDER_W / originalImage.width);
+  mainCanvas.width = Math.round(originalImage.width * renderScale);
+  mainCanvas.height = Math.round(originalImage.height * renderScale);
   mainCanvas.style.width = (originalImage.width * zoom) + 'px';
   mainCanvas.style.height = (originalImage.height * zoom) + 'px';
   zoomLevel.textContent = Math.round(zoom * 100) + '%';
@@ -1254,16 +1260,13 @@ function render() {
   ctx.clearRect(0, 0, w, h);
 
   if (comparing) {
-    // Show original on left half
     ctx.drawImage(originalImage, 0, 0, w/2, h, 0, 0, w/2, h);
-    // Show edited on right half
     ctx.save();
     ctx.beginPath();
     ctx.rect(w/2, 0, w/2, h);
     ctx.clip();
     applyEdits();
     ctx.restore();
-    // Divider line
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1801,8 +1804,7 @@ function applyPreset(index) {
     updateSliderUI(key);
   });
   updatePresetUI();
-  render();
-  updateHistogram();
+  scheduleRender();
 }
 
 function updatePresetUI() {
@@ -1879,8 +1881,18 @@ function resetSlider(key) {
   const def = presets[0].values[key] !== undefined ? presets[0].values[key] : 0;
   sliders[key] = def;
   updateSliderUI(key);
-  render();
-  updateHistogram();
+  scheduleRender();
+}
+
+// Debounced render
+let renderTimeout = null;
+function scheduleRender() {
+  if (renderTimeout) clearTimeout(renderTimeout);
+  renderTimeout = setTimeout(() => {
+    render();
+    updateHistogram();
+    renderTimeout = null;
+  }, 40);
 }
 
 // Bind all sliders
@@ -1902,8 +1914,7 @@ document.querySelectorAll('input[type="range"]').forEach(slider => {
     }
     currentPreset = -1;
     updatePresetUI();
-    render();
-    updateHistogram();
+    scheduleRender();
   });
   // Double-click to reset
   slider.addEventListener('dblclick', (e) => {
@@ -1988,10 +1999,19 @@ document.getElementById('btnCompare').addEventListener('mouseleave', () => { com
 document.getElementById('btnExport').addEventListener('click', () => {
   if (!originalImage) return showToast('请先上传照片');
   if (!isPro && currentPreset > 0) return showPayModal();
+  // Export at full resolution
+  const origW = mainCanvas.width, origH = mainCanvas.height;
+  mainCanvas.width = originalImage.width;
+  mainCanvas.height = originalImage.height;
+  render();
   const link = document.createElement('a');
-  link.download = 'colorlab_' + Date.now() + '.png';
+  link.download = '显影_' + Date.now() + '.png';
   link.href = mainCanvas.toDataURL('image/png');
   link.click();
+  // Restore preview resolution
+  mainCanvas.width = origW;
+  mainCanvas.height = origH;
+  render();
   showToast('导出成功 ✓');
 });
 
