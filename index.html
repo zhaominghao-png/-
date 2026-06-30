@@ -1593,6 +1593,13 @@ function applyEdits() {
   const calBlueHue = (sliders.calBlueHue || 0) / 100;
   const calBlueSat = (sliders.calBlueSat || 0) / 100;
 
+  // --- PRE-COMPUTE CURVE LUTs (once per render, not per pixel) ---
+  let rgbLut = null, redLut = null, greenLut = null, blueLut = null;
+  if (curvePoints.rgb.length > 0) { const prev = curveChannel; curveChannel = 'rgb'; rgbLut = curveToLUT(); curveChannel = prev; }
+  if (curvePoints.red.length > 0) { const prev = curveChannel; curveChannel = 'red'; redLut = curveToLUT(); curveChannel = prev; }
+  if (curvePoints.green.length > 0) { const prev = curveChannel; curveChannel = 'green'; greenLut = curveToLUT(); curveChannel = prev; }
+  if (curvePoints.blue.length > 0) { const prev = curveChannel; curveChannel = 'blue'; blueLut = curveToLUT(); curveChannel = prev; }
+
   // --- LENS BLUR (pre-blur, applied first so subsequent ops work on blurred image) ---
   if (blurAmount > 0) {
     const blurR = blurAmount * 20 * (w / 1000);
@@ -1712,25 +1719,11 @@ function applyEdits() {
     g += curveSum * 255;
     b += curveSum * 255;
 
-    // --- POINT CURVE (LUT-based) ---
-    const rgbLut = curveToLUT();
-    if (curvePoints.rgb.length > 0) {
-      r = rgbLut[Math.round(Math.max(0, Math.min(255, r)))];
-      g = rgbLut[Math.round(Math.max(0, Math.min(255, g)))];
-      b = rgbLut[Math.round(Math.max(0, Math.min(255, b)))];
-    }
-    if (curvePoints.red.length > 0) {
-      const redLut = (() => { const prev = curveChannel; curveChannel = 'red'; const l = curveToLUT(); curveChannel = prev; return l; })();
-      r = redLut[Math.round(Math.max(0, Math.min(255, r)))];
-    }
-    if (curvePoints.green.length > 0) {
-      const greenLut = (() => { const prev = curveChannel; curveChannel = 'green'; const l = curveToLUT(); curveChannel = prev; return l; })();
-      g = greenLut[Math.round(Math.max(0, Math.min(255, g)))];
-    }
-    if (curvePoints.blue.length > 0) {
-      const blueLut = (() => { const prev = curveChannel; curveChannel = 'blue'; const l = curveToLUT(); curveChannel = prev; return l; })();
-      b = blueLut[Math.round(Math.max(0, Math.min(255, b)))];
-    }
+    // --- POINT CURVE (LUT-based, pre-computed) ---
+    if (rgbLut) { r = rgbLut[Math.round(Math.max(0, Math.min(255, r)))]; g = rgbLut[Math.round(Math.max(0, Math.min(255, g)))]; b = rgbLut[Math.round(Math.max(0, Math.min(255, b)))]; }
+    if (redLut) { r = redLut[Math.round(Math.max(0, Math.min(255, r)))]; }
+    if (greenLut) { g = greenLut[Math.round(Math.max(0, Math.min(255, g)))]; }
+    if (blueLut) { b = blueLut[Math.round(Math.max(0, Math.min(255, b)))]; }
 
     // --- HSL MIXER (8-color selective adjustment) ---
     const hasHsl = hslRedH || hslRedS || hslRedL || hslOrangeH || hslOrangeS || hslOrangeL ||
@@ -1739,34 +1732,33 @@ function applyEdits() {
                    hslPurpleH || hslPurpleS || hslPurpleL || hslMagentaH || hslMagentaS || hslMagentaL;
     if (hasHsl) {
       const pxHsl = rgbToHsl(r, g, b);
-      // Determine which color band this pixel belongs to
       const hue = pxHsl.h;
-      const colors = [
-        {name:'red', hue:0, h:0,s:0,l:0},
-        {name:'orange', hue:30, h:0,s:0,l:0},
-        {name:'yellow', hue:60, h:0,s:0,l:0},
-        {name:'green', hue:120, h:0,s:0,l:0},
-        {name:'cyan', hue:180, h:0,s:0,l:0},
-        {name:'blue', hue:240, h:0,s:0,l:0},
-        {name:'purple', hue:270, h:0,s:0,l:0},
-        {name:'magenta', hue:300, h:0,s:0,l:0},
-      ];
-      colors.forEach(c => {
-        c.h = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'H'] || 0;
-        c.s = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'S'] || 0;
-        c.l = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'L'] || 0;
-      });
-      // Find the closest color and blend with neighbors
+      // Pre-computed color params (outside loop, use closures)
       let totalWeight = 0, totalH = 0, totalS = 0, totalL = 0;
-      colors.forEach(c => {
-        let dist = Math.abs(hue - c.hue);
-        if (dist > 180) dist = 360 - dist;
-        const weight = Math.max(0, 1 - dist / 45); // 45° falloff
-        totalWeight += weight;
-        totalH += c.h * weight;
-        totalS += c.s * weight;
-        totalL += c.l * weight;
-      });
+      // Red 0°
+      let dist = hue < 180 ? hue : 360 - hue;
+      let w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslRedH*w; totalS += hslRedS*w; totalL += hslRedL*w;
+      // Orange 30°
+      dist = Math.abs(hue - 30); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslOrangeH*w; totalS += hslOrangeS*w; totalL += hslOrangeL*w;
+      // Yellow 60°
+      dist = Math.abs(hue - 60); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslYellowH*w; totalS += hslYellowS*w; totalL += hslYellowL*w;
+      // Green 120°
+      dist = Math.abs(hue - 120); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslGreenH*w; totalS += hslGreenS*w; totalL += hslGreenL*w;
+      // Cyan 180°
+      dist = Math.abs(hue - 180); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslCyanH*w; totalS += hslCyanS*w; totalL += hslCyanL*w;
+      // Blue 240°
+      dist = Math.abs(hue - 240); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslBlueH*w; totalS += hslBlueS*w; totalL += hslBlueL*w;
+      // Purple 270°
+      dist = Math.abs(hue - 270); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslPurpleH*w; totalS += hslPurpleS*w; totalL += hslPurpleL*w;
+      // Magenta 300°
+      dist = Math.abs(hue - 300); if (dist > 180) dist = 360 - dist;
+      w = dist < 45 ? 1 - dist/45 : 0; totalWeight += w; totalH += hslMagentaH*w; totalS += hslMagentaS*w; totalL += hslMagentaL*w;
       if (totalWeight > 0) {
         pxHsl.h = (pxHsl.h + totalH / totalWeight * 0.3 + 360) % 360;
         pxHsl.s = Math.max(0, Math.min(100, pxHsl.s + totalS / totalWeight * 0.5));
@@ -2138,6 +2130,14 @@ function resetAllSliders() {
 
 // Helper: reset single slider to default
 function resetSlider(key) {
+  // Special: hslSlider resets current color+mode parameter
+  if (key === 'hslSlider') {
+    const hslKey = 'hsl' + hslColor.charAt(0).toUpperCase() + hslColor.slice(1) + (hslMode === 'hue' ? 'H' : hslMode === 'sat' ? 'S' : 'L');
+    sliders[hslKey] = 0;
+    syncHslSlider();
+    scheduleRender();
+    return;
+  }
   const def = presets[0].values[key] !== undefined ? presets[0].values[key] : 0;
   sliders[key] = def;
   updateSliderUI(key);
