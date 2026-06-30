@@ -810,6 +810,27 @@
     </div>
     <div class="section-content" id="sectionEffects">
       <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">纹理</span><span class="slider-value" id="valTexture">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="texture" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="texture">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">清晰度</span><span class="slider-value" id="valClarity">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="clarity" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="clarity">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">去雾</span><span class="slider-value" id="valDehaze">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="dehaze" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="dehaze">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
         <div class="slider-header"><span class="slider-label">褪色</span><span class="slider-value" id="valFade">0</span></div>
         <div class="slider-row">
           <input type="range" id="fade" min="0" max="100" value="0" step="1">
@@ -875,8 +896,33 @@
       <span class="arrow">▾</span>
     </div>
     <div class="section-content collapsed" id="sectionCurve">
-      <div style="padding:8px 0;color:var(--text-tertiary);font-size:0.72rem;text-align:center">
-        曲线调整即将上线<br>支持高光/亮调/暗调/阴影四区域独立控制
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">高光</span><span class="slider-value" id="valCurveHigh">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="curveHigh" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="curveHigh">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">亮调</span><span class="slider-value" id="valCurveLight">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="curveLight" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="curveLight">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">暗调</span><span class="slider-value" id="valCurveDark">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="curveDark" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="curveDark">↺</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-header"><span class="slider-label">阴影</span><span class="slider-value" id="valCurveShadow">0</span></div>
+        <div class="slider-row">
+          <input type="range" id="curveShadow" min="-100" max="100" value="0" step="1">
+          <button class="reset-btn" data-target="curveShadow">↺</button>
+        </div>
       </div>
     </div>
 
@@ -1176,7 +1222,8 @@ const sliders = {
   exposure: 0, contrast: 0, highlights: 0, shadows: 0,
   whites: 0, blacks: 0, temperature: 0, tint: 0,
   vibrance: 0, saturation: 0, fade: 0, grain: 0,
-  vignette: 0, sharpen: 0, hslSlider: 0,
+  vignette: 0, sharpen: 0, texture: 0, clarity: 0, dehaze: 0,
+  curveHigh: 0, curveLight: 0, curveDark: 0, curveShadow: 0, hslSlider: 0,
   // Color Grading
   gradeHue: 0, gradeSat: 0, gradeLum: 0, gradeBlend: 100,
   // Detail
@@ -1197,9 +1244,9 @@ const defaultSliderValues = Object.assign({}, sliders);
 // Preset definitions
 const presets = [
   { name: '原图', values: Object.assign({}, defaultSliderValues) },
-  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
+  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
 // ===== DOM REFS =====
@@ -1444,6 +1491,17 @@ function applyEdits() {
   const vignette = sliders.vignette / 100;
   const sharpen = sliders.sharpen / 100;
 
+  // New: Texture, Clarity, Dehaze (ACR-style)
+  const texture = sliders.texture / 100;   // -1..1, mid-frequency detail
+  const clarity = sliders.clarity / 100;   // -1..1, mid-tone contrast
+  const dehaze = sliders.dehaze / 100;     // -1..1, atmospheric haze
+
+  // Parametric Curve
+  const curveHigh = sliders.curveHigh / 100;
+  const curveLight = sliders.curveLight / 100;
+  const curveDark = sliders.curveDark / 100;
+  const curveShadow = sliders.curveShadow / 100;
+
   // New engine params
   const gradeHue = (sliders.gradeHue || 0) / 360;
   const gradeSat = (sliders.gradeSat || 0) / 100;
@@ -1572,6 +1630,22 @@ function applyEdits() {
     g = gray + (g - gray) * (1 + sat);
     b = gray + (b - gray) * (1 + sat);
 
+    // --- PARAMETRIC CURVE (ACR-style: Highlights/Lights/Darks/Shadows) ---
+    const lum = 0.299*r + 0.587*g + 0.114*b;
+    const lumNorm = lum / 255;
+    // Highlights: top 25% of tonal range
+    const hCurve = curveHigh * (Math.max(0, (lumNorm - 0.75) / 0.25));
+    // Lights: 50%-75%
+    const lCurve = curveLight * (Math.max(0, Math.min(1, (lumNorm - 0.5) / 0.25)) * (1 - Math.max(0, (lumNorm - 0.75) / 0.25)));
+    // Darks: 25%-50%
+    const dCurve = curveDark * (Math.max(0, Math.min(1, (lumNorm - 0.25) / 0.25)) * (1 - Math.max(0, (lumNorm - 0.5) / 0.25)));
+    // Shadows: bottom 25%
+    const sCurve = curveShadow * (Math.max(0, (0.25 - lumNorm) / 0.25));
+    const curveSum = (hCurve + lCurve + dCurve + sCurve) / 100;
+    r += curveSum * 255;
+    g += curveSum * 255;
+    b += curveSum * 255;
+
     // Fade
     if (fade > 0) {
       r = r + (128 - r) * fade * 0.5;
@@ -1604,6 +1678,57 @@ function applyEdits() {
   }
 
   ctx.putImageData(imageData, 0, 0);
+
+  // --- TEXTURE (mid-frequency detail, like ACR Texture) ---
+  if (texture !== 0) {
+    const texData = new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+    boxBlur(texData, 1.5); // blur small details
+    const orig = imageData.data;
+    const blurred = texData.data;
+    for (let i = 0; i < orig.length; i += 4) {
+      for (let c = 0; c < 3; c++) {
+        const detail = orig[i+c] - blurred[i+c];
+        orig[i+c] = Math.max(0, Math.min(255, orig[i+c] + detail * texture * 2));
+      }
+    }
+  }
+
+  // --- CLARITY (mid-tone contrast, like ACR Clarity) ---
+  if (clarity !== 0) {
+    const clData = new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+    const kernel = clarity > 0 ? 20 : 10;
+    boxBlur(clData, kernel);
+    const orig = imageData.data;
+    const blurred = clData.data;
+    for (let i = 0; i < orig.length; i += 4) {
+      const lum = 0.299 * orig[i] + 0.587 * orig[i+1] + 0.114 * orig[i+2];
+      // Only affect mid-tones (avoid pure black/white)
+      const midMask = 1 - Math.abs(lum / 128 - 1);
+      for (let c = 0; c < 3; c++) {
+        const diff = orig[i+c] - blurred[i+c];
+        orig[i+c] = Math.max(0, Math.min(255, orig[i+c] + diff * clarity * 1.5 * midMask));
+      }
+    }
+  }
+
+  // --- DEHAZE (atmospheric haze removal, like ACR Dehaze) ---
+  if (dehaze !== 0) {
+    const dhData = new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+    const kernel = dehaze > 0 ? 30 : 5;
+    boxBlur(dhData, kernel);
+    const orig = imageData.data;
+    const blurred = dhData.data;
+    for (let i = 0; i < orig.length; i += 4) {
+      for (let c = 0; c < 3; c++) {
+        // Dehaze: subtract local average (haze) and boost contrast
+        const haze = blurred[i+c];
+        const val = orig[i+c];
+        // Positive dehaze: remove haze by subtracting local average and boosting
+        // Negative dehaze: add haze
+        orig[i+c] = Math.max(0, Math.min(255, val + (val - haze) * dehaze * 1.2));
+      }
+    }
+  }
 
   // --- DETAIL: SHARPENING ---
   if (sharpAmount > 0) {
@@ -1853,7 +1978,7 @@ function updatePresetPreviews() {
 
 // ===== SLIDER HANDLING =====
 // Sliders that use 0-100 scale (not 0-200 centered at 100)
-const percentSliders = ['fade','grain','vignette','sharpen','gradeSat','gradeBlend','sharpAmount','sharpDetail','sharpMask','nrLuma','nrColor','distortion','ca','vignetteComp','blurAmount','bokeh','calShadow','calRedHue','calRedSat','calGreenHue','calGreenSat','calBlueHue','calBlueSat'];
+const percentSliders = ['texture','clarity','dehaze','curveHigh','curveLight','curveDark','curveShadow','fade','grain','vignette','sharpen','gradeSat','gradeBlend','sharpAmount','sharpDetail','sharpMask','nrLuma','nrColor','distortion','ca','vignetteComp','blurAmount','bokeh','calShadow','calRedHue','calRedSat','calGreenHue','calGreenSat','calBlueHue','calBlueSat'];
 const specialScale = { gradeHue: 360, sharpRadius: 10, gradeLum: -100 };
 
 function updateSliderUI(key) {
