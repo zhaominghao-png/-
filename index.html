@@ -1157,6 +1157,18 @@
 let originalImage = null;
 let currentPreset = 0;
 let isPro = true; // TODO: set to false for production, true for testing
+
+// Update preset card UI based on isPro status
+function updatePresetCards() {
+  document.querySelectorAll('.preset-card').forEach(card => {
+    const index = parseInt(card.dataset.preset);
+    if (index > 0 && isPro) {
+      card.classList.remove('locked');
+      const badge = card.querySelector('.preset-badge');
+      if (badge) badge.style.display = 'none';
+    }
+  });
+}
 let zoom = 1;
 let comparing = false;
 let hslMode = 'hue';
@@ -2063,6 +2075,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===== INIT =====
+updatePresetCards();
 console.log('🎨 显影 · 显影 · 影像后期工作站 · 已就绪');
 console.log('拖入照片开始调色 | 快捷键: 0-3 切换预设 | Ctrl+E 导出 | Ctrl+R 重置');
 </script>
