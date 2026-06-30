@@ -882,10 +882,10 @@
         <div class="hsl-chip" data-color="magenta" style="background:#c040a0"></div>
       </div>
       <div class="slider-group">
-        <div class="slider-header"><span class="slider-label" id="hsl显影el">红色色相</span><span class="slider-value" id="valHsl">0</span></div>
+        <div class="slider-header"><span class="slider-label" id="hslLabel">红色色相</span><span class="slider-value" id="valHsl">0</span></div>
         <div class="slider-row">
           <input type="range" id="hslSlider" min="-100" max="100" value="0" step="1">
-          <button class="reset-btn" data-target="hslSlider">↺</button>
+          <button class="reset-btn" id="hslResetBtn">↺</button>
         </div>
       </div>
     </div>
@@ -1223,7 +1223,17 @@ const sliders = {
   whites: 0, blacks: 0, temperature: 0, tint: 0,
   vibrance: 0, saturation: 0, fade: 0, grain: 0,
   vignette: 0, sharpen: 0, texture: 0, clarity: 0, dehaze: 0,
-  curveHigh: 0, curveLight: 0, curveDark: 0, curveShadow: 0, hslSlider: 0,
+  curveHigh: 0, curveLight: 0, curveDark: 0, curveShadow: 0,
+  // HSL Mixer - 8 colors × 3 modes (hue shift, saturation, luminance)
+  hslRedH: 0, hslRedS: 0, hslRedL: 0,
+  hslOrangeH: 0, hslOrangeS: 0, hslOrangeL: 0,
+  hslYellowH: 0, hslYellowS: 0, hslYellowL: 0,
+  hslGreenH: 0, hslGreenS: 0, hslGreenL: 0,
+  hslCyanH: 0, hslCyanS: 0, hslCyanL: 0,
+  hslBlueH: 0, hslBlueS: 0, hslBlueL: 0,
+  hslPurpleH: 0, hslPurpleS: 0, hslPurpleL: 0,
+  hslMagentaH: 0, hslMagentaS: 0, hslMagentaL: 0,
+  hslSlider: 0,
   // Color Grading
   gradeHue: 0, gradeSat: 0, gradeLum: 0, gradeBlend: 100,
   // Detail
@@ -1244,9 +1254,9 @@ const defaultSliderValues = Object.assign({}, sliders);
 // Preset definitions
 const presets = [
   { name: '原图', values: Object.assign({}, defaultSliderValues) },
-  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
-  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
+  { name: '蓝调时刻', values: { ...defaultSliderValues, exposure:5,contrast:10,highlights:-10,shadows:5,whites:-5,blacks:8,temperature:-15,tint:2,vibrance:-10,saturation:-15,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:15,grain:10,vignette:20,sharpen:5,gradeHue:210,gradeSat:15,gradeLum:-5,gradeBlend:60,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '白日梦', values: { ...defaultSliderValues, exposure:0,contrast:0,highlights:0,shadows:0,whites:0,blacks:0,temperature:0,tint:0,vibrance:0,saturation:0,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:0,grain:0,vignette:0,sharpen:0,gradeHue:0,gradeSat:0,gradeLum:0,gradeBlend:100,sharpAmount:0,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } },
+  { name: '胶片记忆', values: { ...defaultSliderValues, exposure:2,contrast:15,highlights:-15,shadows:-5,whites:-10,blacks:10,temperature:10,tint:5,vibrance:-15,saturation:-10,texture:0,clarity:0,dehaze:0,curveHigh:0,curveLight:0,curveDark:0,curveShadow:0,hslRedH:0,hslRedS:0,hslRedL:0,hslOrangeH:0,hslOrangeS:0,hslOrangeL:0,hslYellowH:0,hslYellowS:0,hslYellowL:0,hslGreenH:0,hslGreenS:0,hslGreenL:0,hslCyanH:0,hslCyanS:0,hslCyanL:0,hslBlueH:0,hslBlueS:0,hslBlueL:0,hslPurpleH:0,hslPurpleS:0,hslPurpleL:0,hslMagentaH:0,hslMagentaS:0,hslMagentaL:0,fade:20,grain:25,vignette:15,sharpen:10,gradeHue:30,gradeSat:20,gradeLum:0,gradeBlend:70,sharpAmount:20,sharpRadius:10,sharpDetail:25,sharpMask:0,nrLuma:0,nrColor:25,distortion:0,ca:0,vignetteComp:0,blurAmount:0,bokeh:0,calShadow:0,calRedHue:0,calRedSat:0,calGreenHue:0,calGreenSat:0,calBlueHue:0,calBlueSat:0 } }
 ];
 
 // ===== DOM REFS =====
@@ -1496,6 +1506,16 @@ function applyEdits() {
   const clarity = sliders.clarity / 100;   // -1..1, mid-tone contrast
   const dehaze = sliders.dehaze / 100;     // -1..1, atmospheric haze
 
+  // HSL Mixer
+  const hslRedH = sliders.hslRedH || 0, hslRedS = sliders.hslRedS || 0, hslRedL = sliders.hslRedL || 0;
+  const hslOrangeH = sliders.hslOrangeH || 0, hslOrangeS = sliders.hslOrangeS || 0, hslOrangeL = sliders.hslOrangeL || 0;
+  const hslYellowH = sliders.hslYellowH || 0, hslYellowS = sliders.hslYellowS || 0, hslYellowL = sliders.hslYellowL || 0;
+  const hslGreenH = sliders.hslGreenH || 0, hslGreenS = sliders.hslGreenS || 0, hslGreenL = sliders.hslGreenL || 0;
+  const hslCyanH = sliders.hslCyanH || 0, hslCyanS = sliders.hslCyanS || 0, hslCyanL = sliders.hslCyanL || 0;
+  const hslBlueH = sliders.hslBlueH || 0, hslBlueS = sliders.hslBlueS || 0, hslBlueL = sliders.hslBlueL || 0;
+  const hslPurpleH = sliders.hslPurpleH || 0, hslPurpleS = sliders.hslPurpleS || 0, hslPurpleL = sliders.hslPurpleL || 0;
+  const hslMagentaH = sliders.hslMagentaH || 0, hslMagentaS = sliders.hslMagentaS || 0, hslMagentaL = sliders.hslMagentaL || 0;
+
   // Parametric Curve
   const curveHigh = sliders.curveHigh / 100;
   const curveLight = sliders.curveLight / 100;
@@ -1644,6 +1664,50 @@ function applyEdits() {
     r += curveSum * 255;
     g += curveSum * 255;
     b += curveSum * 255;
+
+    // --- HSL MIXER (8-color selective adjustment) ---
+    const hasHsl = hslRedH || hslRedS || hslRedL || hslOrangeH || hslOrangeS || hslOrangeL ||
+                   hslYellowH || hslYellowS || hslYellowL || hslGreenH || hslGreenS || hslGreenL ||
+                   hslCyanH || hslCyanS || hslCyanL || hslBlueH || hslBlueS || hslBlueL ||
+                   hslPurpleH || hslPurpleS || hslPurpleL || hslMagentaH || hslMagentaS || hslMagentaL;
+    if (hasHsl) {
+      const pxHsl = rgbToHsl(r, g, b);
+      // Determine which color band this pixel belongs to
+      const hue = pxHsl.h;
+      const colors = [
+        {name:'red', hue:0, h:0,s:0,l:0},
+        {name:'orange', hue:30, h:0,s:0,l:0},
+        {name:'yellow', hue:60, h:0,s:0,l:0},
+        {name:'green', hue:120, h:0,s:0,l:0},
+        {name:'cyan', hue:180, h:0,s:0,l:0},
+        {name:'blue', hue:240, h:0,s:0,l:0},
+        {name:'purple', hue:270, h:0,s:0,l:0},
+        {name:'magenta', hue:300, h:0,s:0,l:0},
+      ];
+      colors.forEach(c => {
+        c.h = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'H'] || 0;
+        c.s = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'S'] || 0;
+        c.l = sliders['hsl' + c.name.charAt(0).toUpperCase() + c.name.slice(1) + 'L'] || 0;
+      });
+      // Find the closest color and blend with neighbors
+      let totalWeight = 0, totalH = 0, totalS = 0, totalL = 0;
+      colors.forEach(c => {
+        let dist = Math.abs(hue - c.hue);
+        if (dist > 180) dist = 360 - dist;
+        const weight = Math.max(0, 1 - dist / 45); // 45° falloff
+        totalWeight += weight;
+        totalH += c.h * weight;
+        totalS += c.s * weight;
+        totalL += c.l * weight;
+      });
+      if (totalWeight > 0) {
+        pxHsl.h = (pxHsl.h + totalH / totalWeight * 0.3 + 360) % 360;
+        pxHsl.s = Math.max(0, Math.min(100, pxHsl.s + totalS / totalWeight * 0.5));
+        pxHsl.l = Math.max(0, Math.min(100, pxHsl.l + totalL / totalWeight * 0.5));
+        const adj = hslToRgb(pxHsl.h, pxHsl.s, pxHsl.l);
+        r = adj.r; g = adj.g; b = adj.b;
+      }
+    }
 
     // Fade
     if (fade > 0) {
@@ -2069,12 +2133,57 @@ document.querySelectorAll('.section-collapse').forEach(header => {
   });
 });
 
-// ===== HSL TABS =====
+// ===== HSL MIXER =====
+const hslColorNames = {red:'红色',orange:'橙色',yellow:'黄色',green:'绿色',cyan:'青色',blue:'蓝色',purple:'紫色',magenta:'洋红'};
+const hslModeNames = {hue:'色相',sat:'饱和度',lum:'明亮度'};
+
+function syncHslSlider() {
+  const key = 'hsl' + hslColor.charAt(0).toUpperCase() + hslColor.slice(1) + (hslMode === 'hue' ? 'H' : hslMode === 'sat' ? 'S' : 'L');
+  const slider = document.getElementById('hslSlider');
+  const valEl = document.getElementById('valHsl');
+  const labelEl = document.getElementById('hslLabel');
+  const resetBtn = document.getElementById('hslResetBtn');
+  if (slider) slider.value = sliders[key] || 0;
+  if (valEl) valEl.textContent = sliders[key] || 0;
+  if (labelEl) labelEl.textContent = hslColorNames[hslColor] + hslModeNames[hslMode];
+  if (resetBtn) resetBtn.setAttribute('data-target', key);
+}
+
+// HSL slider input
+const hslSliderEl = document.getElementById('hslSlider');
+if (hslSliderEl) {
+  hslSliderEl.addEventListener('input', () => {
+    const key = 'hsl' + hslColor.charAt(0).toUpperCase() + hslColor.slice(1) + (hslMode === 'hue' ? 'H' : hslMode === 'sat' ? 'S' : 'L');
+    sliders[key] = parseInt(hslSliderEl.value);
+    document.getElementById('valHsl').textContent = sliders[key];
+    currentPreset = -1;
+    updatePresetUI();
+    scheduleRender();
+  });
+  hslSliderEl.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    const key = 'hsl' + hslColor.charAt(0).toUpperCase() + hslColor.slice(1) + (hslMode === 'hue' ? 'H' : hslMode === 'sat' ? 'S' : 'L');
+    sliders[key] = 0;
+    syncHslSlider();
+    scheduleRender();
+  });
+}
+
+// HSL reset button
+const hslResetBtn = document.getElementById('hslResetBtn');
+if (hslResetBtn) {
+  hslResetBtn.addEventListener('click', () => {
+    const key = hslResetBtn.getAttribute('data-target');
+    if (key) { sliders[key] = 0; syncHslSlider(); scheduleRender(); }
+  });
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     tab.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     hslMode = tab.dataset.hsl;
+    syncHslSlider();
   });
 });
 
@@ -2083,11 +2192,12 @@ document.querySelectorAll('.hsl-chip').forEach(chip => {
     chip.parentElement.querySelectorAll('.hsl-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     hslColor = chip.dataset.color;
-    document.getElementById('hsl显影el').textContent =
-      {red:'红色',orange:'橙色',yellow:'黄色',green:'绿色',cyan:'青色',blue:'蓝色',purple:'紫色',magenta:'洋红'}[hslColor] +
-      {hue:'色相',sat:'饱和度',lum:'明亮度'}[hslMode];
+    syncHslSlider();
   });
 });
+
+// Initial sync
+syncHslSlider();
 
 // ===== PRESET CLICK =====
 document.querySelectorAll('.preset-card').forEach(card => {
