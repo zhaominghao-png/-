@@ -702,20 +702,17 @@
           <canvas class="preset-preview" data-preview="0"></canvas>
           <div class="preset-label">原图</div>
         </div>
-        <div class="preset-card locked" data-preset="1">
+        <div class="preset-card" data-preset="1">
           <canvas class="preset-preview" data-preview="1"></canvas>
           <div class="preset-label">蓝调时刻</div>
-          <div class="preset-badge">PRO</div>
         </div>
-        <div class="preset-card locked" data-preset="2">
+        <div class="preset-card" data-preset="2">
           <canvas class="preset-preview" data-preview="2"></canvas>
           <div class="preset-label">白日梦</div>
-          <div class="preset-badge">PRO</div>
         </div>
-        <div class="preset-card locked" data-preset="3">
+        <div class="preset-card" data-preset="3">
           <canvas class="preset-preview" data-preview="3"></canvas>
           <div class="preset-label">胶片记忆</div>
-          <div class="preset-badge">PRO</div>
         </div>
       </div>
     </div>
@@ -1755,13 +1752,8 @@ function applyEdits() {
     ctx.putImageData(grainData, 0, 0);
   }
 
-  // --- WATERMARK ---
-  if (!isPro && currentPreset > 0) {
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
-    ctx.font = `${Math.max(12, w/40)}px "Inter","Noto Sans SC",sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('显影 · 赵明皓', w/2, h/2);
-  }
+  // --- WATERMARK (disabled during testing) ---
+  // if (!isPro && currentPreset > 0) { ... }
 }
 
 // ===== HISTOGRAM =====
@@ -1805,10 +1797,7 @@ function updateHistogram() {
 
 // ===== PRESETS =====
 function applyPreset(index) {
-  if (index > 0 && !isPro) {
-    showPayModal();
-    return;
-  }
+  // if (index > 0 && !isPro) { showPayModal(); return; }  // disabled for testing
   currentPreset = index;
   const preset = presets[index];
   Object.keys(preset.values).forEach(key => {
@@ -2010,7 +1999,7 @@ document.getElementById('btnCompare').addEventListener('mouseleave', () => { com
 
 document.getElementById('btnExport').addEventListener('click', () => {
   if (!originalImage) return showToast('请先上传照片');
-  if (!isPro && currentPreset > 0) return showPayModal();
+  // if (!isPro && currentPreset > 0) return showPayModal();  // disabled for testing
   // Export at full resolution
   const origW = mainCanvas.width, origH = mainCanvas.height;
   mainCanvas.width = originalImage.width;
