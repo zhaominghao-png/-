@@ -1874,6 +1874,15 @@ function resetAllSliders() {
   });
 }
 
+// Helper: reset single slider to default
+function resetSlider(key) {
+  const def = presets[0].values[key] !== undefined ? presets[0].values[key] : 0;
+  sliders[key] = def;
+  updateSliderUI(key);
+  render();
+  updateHistogram();
+}
+
 // Bind all sliders
 document.querySelectorAll('input[type="range"]').forEach(slider => {
   slider.addEventListener('input', () => {
@@ -1888,7 +1897,7 @@ document.querySelectorAll('input[type="range"]').forEach(slider => {
       } else if (key === 'sharpRadius') {
         valEl.textContent = (sliders[key] / 10).toFixed(1);
       } else {
-        valEl.textContent = sliders[key] === 100 ? '0' : sliders[key] > 100 ? '+' + (sliders[key]-100) : (sliders[key]-100);
+        valEl.textContent = sliders[key] === 0 ? '0' : sliders[key] > 0 ? '+' + sliders[key] : sliders[key];
       }
     }
     currentPreset = -1;
@@ -1896,17 +1905,17 @@ document.querySelectorAll('input[type="range"]').forEach(slider => {
     render();
     updateHistogram();
   });
+  // Double-click to reset
+  slider.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    resetSlider(slider.id);
+  });
 });
 
 // Reset buttons
 document.querySelectorAll('.reset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    const target = btn.dataset.target;
-    const def = presets[0].values[target] !== undefined ? presets[0].values[target] : 100;
-    sliders[target] = def;
-    updateSliderUI(target);
-    render();
-    updateHistogram();
+    resetSlider(btn.dataset.target);
   });
 });
 
