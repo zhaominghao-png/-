@@ -2192,12 +2192,35 @@ function applyPreset(index) {
     });
   } catch(e) { console.error('applyPreset error:', e); }
 
-  // 白日梦预设：用引擎参数（从明皓调色成片数据分析）
+  // 白日梦预设：自动加载LUT
   if (index === 2) {
-    colorLut3D = null;
-    document.getElementById('lutStatus').textContent = '📂 点击加载 .cube 文件';
-    document.getElementById('lutIntensityGroup').hidden = true;
-    document.getElementById('clearLutBtn').style.display = 'none';
+    if (!colorLut3D && !window._brmLutLoading) {
+      window._brmLutLoading = true;
+      fetch('白日梦.cube')
+        .then(r => r.text())
+        .then(text => {
+          const lut = parseCubeFile(text);
+          if (lut) {
+            colorLut3D = lut;
+            lutStrength = 100;
+            document.getElementById('lutStatus').textContent = '✅ 白日梦.cube (32³)';
+            document.getElementById('lutIntensityGroup').hidden = false;
+            document.getElementById('clearLutBtn').style.display = 'block';
+            const islider = document.getElementById('lutIntensity');
+            if (islider) { islider.value = 100; }
+            document.getElementById('valLutIntensity').textContent = '100';
+            showToast('白日梦 LUT 已加载');
+            scheduleRender();
+          }
+        })
+        .catch(e => console.error('LUT load error:', e));
+    } else if (colorLut3D) {
+      lutStrength = 100;
+      const islider = document.getElementById('lutIntensity');
+      if (islider) { islider.value = 100; }
+      document.getElementById('valLutIntensity').textContent = '100';
+      scheduleRender();
+    }
   }
 
   updatePresetUI();
